@@ -1,0 +1,54 @@
+{
+  "common": {
+    "appName": "Squirrel EPUB Reader",
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back",
+    "success": "Success",
+    "error": "Error"
+  },
+  "nav": {
+    "myBookshelf": "My Bookshelf",
+    "backToBookshelf": "Back to Bookshelf"
+  },
+  "book": {
+    "import": "Import Book",
+    "importConfirm": "Confirm Import",
+    "importSuccess": "Book imported successfully",
+    "importFailed": "Import failed",
+    "selectEpub": "Please select EPUB format file",
+    "invalidEpub": "Invalid EPUB file",
+    "parseFailed": "Parse failed",
+    "cover": "Cover",
+    "noCover": "No Cover",
+    "author": "Author",
+    "read": "Read",
+    "delete": "Delete",
+    "deleteConfirm": "Confirm Delete",
+    "deleteConfirmDesc": "This action cannot be undone. Are you sure you want to delete?",
+    "deleteSuccess": "Deleted successfully",
+    "deleteFailed": "Delete failed",
+    "notRead": "Not Read",
+    "addedAt": "Added at",
+    "loadFailed": "Failed to load books",
+    "noBooks": "No books yet, please import EPUB files",
+    "loadBookFailed": "Failed to load book",
+    "bookNotFound": "Book not found",
+    "bookNotExist": "Book does not exist"
+  },
+  "reader": {
+    "showToc": "Show Table of Contents",
+    "hideToc": "Hide Table of Contents",
+    "tableOfContents": "Table of Contents",
+    "previous": "Previous Chapter",
+    "next": "Next Chapter",
+    "chapter": "Chapter",
+    "chapterProgress": "Chapter {{current}} / {{total}}",
+    "readProgress": "{{progress}}% Read",
+    "noContent": "No Content"
+  }
+}

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import {
   Card,
   List,
@@ -23,6 +25,7 @@ interface BookListProps {
 }
 
 export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [books, setBooks] = useState<Book[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, ReadingProgress>>(new Map());
@@ -49,7 +52,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
       });
       setProgressMap(progressMap);
     } catch (error) {
-      message.error('加载书籍失败');
+      message.error(t('book.loadFailed'));
       console.error(error);
     } finally {
       setLoading(false);
@@ -63,16 +66,16 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
   const handleDelete = async (bookId: string) => {
     try {
       await deleteBook(bookId);
-      message.success('删除成功');
+      message.success(t('book.deleteSuccess'));
       await loadBooks();
     } catch (error) {
-      message.error('删除失败');
+      message.error(t('book.deleteFailed'));
       console.error(error);
     }
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('zh-CN', {
+    return new Date(date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'zh-CN', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -82,7 +85,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
   if (books.length === 0 && !loading) {
     return (
       <Empty
-        description="暂无书籍，请导入EPUB文件"
+        description={t('book.noBooks')}
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         style={{ marginTop: 80 }}
       />
@@ -108,7 +111,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
         return (
           <List.Item>
             <Badge.Ribbon
-              text={progressPercent > 0 ? `${Math.round(progressPercent)}%` : '未读'}
+              text={progressPercent > 0 ? `${Math.round(progressPercent)}%` : t('book.notRead')}
               color={progressPercent > 0 ? (progressPercent >= 100 ? 'green' : 'blue') : 'default'}
             >
               <Card
@@ -146,7 +149,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                       }}
                     >
                       <BookOutlined style={{ fontSize: 64, color: 'rgba(255, 255, 255, 0.8)', marginBottom: 16 }} />
-                      <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 14 }}>暂无封面</span>
+                      <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 14 }}>{t('book.noCover')}</span>
                     </div>
                   )
                 }
@@ -157,18 +160,18 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                     icon={<EyeOutlined />}
                     onClick={() => navigate(`/read/${book.id}`)}
                   >
-                    阅读
+                    {t('book.read')}
                   </Button>,
                   <Popconfirm
                     key="delete"
-                    title="确认删除"
-                    description="删除后无法恢复，确定要删除吗？"
+                    title={t('book.deleteConfirm')}
+                    description={t('book.deleteConfirmDesc')}
                     onConfirm={() => handleDelete(book.id)}
-                    okText="删除"
-                    cancelText="取消"
+                    okText={t('common.delete')}
+                    cancelText={t('common.cancel')}
                   >
                     <Button type="text" danger icon={<DeleteOutlined />}>
-                      删除
+                      {t('common.delete')}
                     </Button>
                   </Popconfirm>,
                 ]}
@@ -195,7 +198,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                           marginBottom: 8,
                         }}
                       >
-                        作者：{book.metadata.author}
+                        {t('book.author')}：{book.metadata.author}
                       </div>
                       {progressPercent > 0 && (
                         <Progress
@@ -205,7 +208,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                         />
                       )}
                       <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                        添加于 {formatDate(book.addedAt)}
+                        {t('book.addedAt')} {formatDate(book.addedAt)}
                       </div>
                     </div>
                   }

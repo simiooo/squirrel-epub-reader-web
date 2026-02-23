@@ -1,0 +1,54 @@
+{
+  "common": {
+    "appName": "松鼠EPUB阅读器",
+    "loading": "加载中...",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "save": "保存",
+    "close": "关闭",
+    "back": "返回",
+    "success": "成功",
+    "error": "错误"
+  },
+  "nav": {
+    "myBookshelf": "我的书架",
+    "backToBookshelf": "返回书架"
+  },
+  "book": {
+    "import": "导入书籍",
+    "importConfirm": "确认导入",
+    "importSuccess": "书籍导入成功",
+    "importFailed": "导入失败",
+    "selectEpub": "请选择EPUB格式的文件",
+    "invalidEpub": "无效的EPUB文件",
+    "parseFailed": "解析失败",
+    "cover": "封面",
+    "noCover": "暂无封面",
+    "author": "作者",
+    "read": "阅读",
+    "delete": "删除",
+    "deleteConfirm": "确认删除",
+    "deleteConfirmDesc": "删除后无法恢复，确定要删除吗？",
+    "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败",
+    "notRead": "未读",
+    "addedAt": "添加于",
+    "loadFailed": "加载书籍失败",
+    "noBooks": "暂无书籍，请导入EPUB文件",
+    "loadBookFailed": "加载书籍失败",
+    "bookNotFound": "书籍未找到",
+    "bookNotExist": "书籍不存在"
+  },
+  "reader": {
+    "showToc": "显示目录",
+    "hideToc": "隐藏目录",
+    "tableOfContents": "目录",
+    "previous": "上一章",
+    "next": "下一章",
+    "chapter": "章",
+    "chapterProgress": "第 {{current}} / {{total}} 章",
+    "readProgress": "{{progress}}% 已读",
+    "noContent": "暂无内容"
+  }
+}

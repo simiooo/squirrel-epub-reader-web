@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Layout,
   Button,
@@ -35,6 +36,7 @@ interface BookReaderProps {
 }
 
 export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
+  const { t } = useTranslation();
   const { token } = useToken();
   const [chapters, setChapters] = useState<ParsedChapter[]>([]);
   const [tableOfContents, setTableOfContents] = useState<Chapter[]>([]);
@@ -117,7 +119,7 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
           }
         }
       } catch (error) {
-        message.error('加载书籍失败');
+        message.error(t('book.loadBookFailed'));
         console.error(error);
       } finally {
         setLoading(false);
@@ -220,13 +222,13 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
         >
           <Space>
             <Button icon={<HomeOutlined />} onClick={onClose}>
-              返回书架
+              {t('nav.backToBookshelf')}
             </Button>
             <Button
               icon={tocVisible ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
               onClick={() => setTocVisible(!tocVisible)}
             >
-              {tocVisible ? '隐藏目录' : '显示目录'}
+              {tocVisible ? t('reader.hideToc') : t('reader.showToc')}
             </Button>
           </Space>
 
@@ -273,7 +275,7 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
             <div style={{ padding: 16 }}>
               <Title level={5} style={{ marginTop: 0, marginBottom: 16 }}>
                 <BookOutlined style={{ marginRight: 8 }} />
-                目录
+                {t('reader.tableOfContents')}
               </Title>
               <TableOfContents
                 chapters={tableOfContents}
@@ -336,7 +338,7 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
               {/* Navigation Footer */}
               <Divider style={{ marginTop: token.marginXL * 2, marginBottom: token.marginLG }}>
                 <Text type="secondary">
-                  第 {currentChapterIndex + 1} / {chapters.length} 章
+                  {t('reader.chapterProgress', { current: currentChapterIndex + 1, total: chapters.length })}
                 </Text>
               </Divider>
 
@@ -359,12 +361,12 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
                     disabled={currentChapterIndex === 0}
                     size="large"
                   >
-                    上一章
+                    {t('reader.previous')}
                   </Button>
 
                   <Space direction="vertical" align="center" size={4}>
                     <Text type="secondary">
-                      {Math.round(((currentChapterIndex + 1) / chapters.length) * 100)}% 已读
+                      {t('reader.readProgress', { progress: Math.round(((currentChapterIndex + 1) / chapters.length) * 100) })}
                     </Text>
                     <Progress
                       percent={Math.round(((currentChapterIndex + 1) / chapters.length) * 100)}
@@ -380,14 +382,14 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
                     disabled={currentChapterIndex === chapters.length - 1}
                     size="large"
                   >
-                    下一章
+                    {t('reader.next')}
                   </Button>
                 </div>
               </Card>
             </div>
           ) : (
             <div style={{ textAlign: 'center', paddingTop: 100 }}>
-              暂无内容
+              {t('reader.noContent')}
             </div>
           )}
         </Content>

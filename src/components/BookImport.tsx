@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Upload, Button, message, Modal } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
@@ -11,6 +12,7 @@ interface BookImportProps {
 }
 
 export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
+  const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -24,14 +26,14 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
   const handleBeforeUpload = useCallback((file: File) => {
     const isEpub = file.type === 'application/epub+zip' || file.name.endsWith('.epub');
     if (!isEpub) {
-      message.error('请选择EPUB格式的文件！');
+      message.error(t('book.selectEpub'));
       return Upload.LIST_IGNORE;
     }
     
     // Validate EPUB format
     epubParser.validate(file).then(({ valid, error }) => {
       if (!valid) {
-        message.error(error || '无效的EPUB文件');
+        message.error(error || t('book.invalidEpub'));
         setFileList([]);
       } else {
         // Parse metadata for preview
@@ -44,7 +46,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
           });
           setPreviewVisible(true);
         }).catch((err) => {
-          message.error(`解析失败：${err.message}`);
+          message.error(`${t('book.parseFailed')}: ${err.message}`);
           setFileList([]);
         });
       }
@@ -70,13 +72,13 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
       };
       
       await addBook(book);
-      message.success('书籍导入成功！');
+      message.success(t('book.importSuccess'));
       setPreviewVisible(false);
       setPreviewBook(null);
       setFileList([]);
       onImport();
     } catch (error) {
-      message.error(`导入失败：${error instanceof Error ? error.message : String(error)}`);
+      message.error(`${t('book.importFailed')}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setUploading(false);
     }
@@ -93,12 +95,12 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
         showUploadList={false}
       >
         <Button icon={<UploadOutlined />} type="primary">
-          导入书籍
+          {t('book.import')}
         </Button>
       </Upload>
 
       <Modal
-        title="确认导入"
+        title={t('book.importConfirm')}
         open={previewVisible}
         onOk={handleImport}
         onCancel={() => {
@@ -107,8 +109,8 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
           setFileList([]);
         }}
         confirmLoading={uploading}
-        okText="确认导入"
-        cancelText="取消"
+        okText={t('common.confirm')}
+        cancelText={t('common.cancel')}
       >
         {previewBook && (
           <div style={{ textAlign: 'center' }}>
@@ -137,11 +139,11 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
                   borderRadius: 4,
                 }}
               >
-                暂无封面
+                {t('book.noCover')}
               </div>
             )}
             <h3 style={{ margin: '16px 0 8px' }}>{previewBook.title}</h3>
-            <p style={{ color: '#666', margin: 0 }}>作者：{previewBook.author}</p>
+            <p style={{ color: '#666', margin: 0 }}>{t('book.author')}：{previewBook.author}</p>
           </div>
         )}
       </Modal>

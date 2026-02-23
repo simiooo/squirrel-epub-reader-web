@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BookReader } from '../components/BookReader';
 import { getBook } from '../db';
 import type { Book } from '../types';
@@ -7,6 +8,7 @@ import { Spin, Result, Button } from 'antd';
 import { HomeOutlined } from '@ant-design/icons';
 
 export const ReadPage: React.FC = () => {
+  const { t } = useTranslation();
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const [book, setBook] = useState<Book | null>(null);
@@ -16,7 +18,7 @@ export const ReadPage: React.FC = () => {
   useEffect(() => {
     const loadBook = async () => {
       if (!bookId) {
-        setError('书籍ID不能为空');
+        setError(t('book.bookNotFound'));
         setLoading(false);
         return;
       }
@@ -27,10 +29,10 @@ export const ReadPage: React.FC = () => {
         if (loadedBook) {
           setBook(loadedBook);
         } else {
-          setError('书籍不存在');
+          setError(t('book.bookNotExist'));
         }
       } catch (err) {
-        setError('加载书籍失败');
+        setError(t('book.loadBookFailed'));
         console.error(err);
       } finally {
         setLoading(false);
@@ -38,7 +40,7 @@ export const ReadPage: React.FC = () => {
     };
 
     loadBook();
-  }, [bookId]);
+  }, [bookId, t]);
 
   const handleClose = () => {
     navigate('/');
@@ -47,7 +49,7 @@ export const ReadPage: React.FC = () => {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" tip="加载中..." />
+        <Spin size="large" tip={t('common.loading')} />
       </div>
     );
   }
@@ -56,11 +58,11 @@ export const ReadPage: React.FC = () => {
     return (
       <Result
         status="404"
-        title="书籍未找到"
+        title={t('book.bookNotFound')}
         subTitle={error}
         extra={
           <Button type="primary" icon={<HomeOutlined />} onClick={() => navigate('/')}>
-            返回书架
+            {t('nav.backToBookshelf')}
           </Button>
         }
       />
@@ -71,10 +73,10 @@ export const ReadPage: React.FC = () => {
     return (
       <Result
         status="404"
-        title="书籍不存在"
+        title={t('book.bookNotExist')}
         extra={
           <Button type="primary" icon={<HomeOutlined />} onClick={() => navigate('/')}>
-            返回书架
+            {t('nav.backToBookshelf')}
           </Button>
         }
       />
