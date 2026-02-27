@@ -9,10 +9,10 @@
 /* ==================== FONT LOADING STATES ==================== */
 /* 字体加载完成前的回退样式 - 使用系统字体确保即时渲染 */
 
-/* 中文统一使用 MiSans，西文正文使用 Georgia */
+/* 中文统一使用 MiSans，西文正文使用 Merriweather */
 .chapter-content {
   /* Base typography using antd tokens with web font fallbacks */
-  font-family: Georgia, 'Times New Roman', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Merriweather', Georgia, 'Times New Roman', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, serif;
   font-size: var(--antd-font-size-lg, 16px);
 }
 
@@ -40,7 +40,7 @@
 
 /* MiSans 加载完成后 - 中文统一使用 MiSans */
 .font-MiSans-loaded .chapter-content {
-  font-family: 'MiSans', 'MiSans Regular', 'MiSans-Regular', Georgia, 'Times New Roman', -apple-system, sans-serif;
+  font-family: 'MiSans', 'MiSans Regular', 'MiSans-Regular', 'Merriweather', Georgia, serif;
 }
 
 .font-MiSans-loaded .chapter-content h1,
@@ -82,27 +82,32 @@
   font-family: inherit;
 }
 
-/* 所有字体都加载完成后的最终样式 */
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content {
-  font-family: 'MiSans', Georgia, 'Times New Roman', serif;
+/* Merriweather 加载完成后 - 西文正文使用 Merriweather */
+.font-Merriweather-loaded .chapter-content {
+  font-family: 'MiSans', 'Merriweather', Georgia, 'Times New Roman', serif;
 }
 
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h1,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h2,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h3,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h4,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h5,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h6 {
+/* 所有字体都加载完成后的最终样式 */
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content {
+  font-family: 'MiSans', 'Merriweather', Georgia, serif;
+}
+
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h1,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h2,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h3,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h4,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h5,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h6 {
   font-family: 'MiSans', 'Nunito', sans-serif;
 }
 
 /* h标签内的span继承标题字体 */
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h1 span,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h2 span,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h3 span,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h4 span,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h5 span,
-.font-MiSans-loaded.font-Nunito-loaded .chapter-content h6 span {
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h1 span,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h2 span,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h3 span,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h4 span,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h5 span,
+.font-MiSans-loaded.font-Nunito-loaded.font-Merriweather-loaded .chapter-content h6 span {
   font-family: inherit;
 }
 
@@ -137,7 +142,7 @@
   text-indent: 2em;
   text-align: justify;
   color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
-  line-height: var(--antd-line-height-lg, 1.8);
+  line-height: var(--antd-line-height, 1.5);
 }
 
 .chapter-content p:first-child {
