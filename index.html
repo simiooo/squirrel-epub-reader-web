@@ -19,22 +19,30 @@
     
     <!-- 
       异步加载网络字体 - 避免阻塞页面渲染
-      使用 Font Face Observer 检测字体加载状态
+      衬线字体用于标题，无衬线字体用于正文
     -->
     <script>
       // 异步加载字体 CSS
       (function() {
         'use strict';
         
-        // 字体配置
+        // 字体配置：衬线(标题) + 无衬线(正文) + 英文优化
+        // MiSans(小米) + Noto Serif SC(思源宋体) + Inter
         const fonts = [
           {
-            name: 'LXGWWenKai',
-            url: 'https://chinese-font.netlify.app/packages/lxgwwenkai/dist/LXGWWenKai-Regular/result.css'
+            name: 'MiSans',
+            url: 'https://cdn.jsdelivr.net/npm/misans-webfont/misans-style.css',
+            type: 'sans-serif'
+          },
+          {
+            name: 'NotoSerifSC',
+            url: 'https://fonts.bunny.net/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap',
+            type: 'serif'
           },
           {
             name: 'Inter',
-            url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap'
+            url: 'https://fonts.bunny.net/css2?family=Inter:wght@400;500;600&display=swap',
+            type: 'latin'
           }
         ];
         
@@ -72,9 +80,8 @@
     </script>
     
     <!-- 预连接到字体 CDN - 提高加载速度但不阻塞 -->
-    <link rel="preconnect" href="https://chinese-font.netlify.app" crossorigin />
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.bunny.net" />
   </head>
   <body>
     <div id="root"></div>
