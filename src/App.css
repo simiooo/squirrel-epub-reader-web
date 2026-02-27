@@ -142,7 +142,7 @@
   text-indent: 2em;
   text-align: justify;
   color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
-  line-height: var(--antd-line-height, 1.5);
+  line-height: var(--antd-line-height-sm, 1.333);
 }
 
 .chapter-content p:first-child {
