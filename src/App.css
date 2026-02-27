@@ -142,6 +142,7 @@
   text-indent: 2em;
   text-align: justify;
   color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
+  font-size: var(--antd-font-size-lg, 16px);
   line-height: var(--antd-line-height-sm, 1.333);
 }
 
@@ -320,7 +321,7 @@
   border: 1px solid var(--antd-color-primary-border, rgba(24, 144, 255, 0.2));
   color: var(--antd-color-primary, #1890ff);
   border-radius: var(--antd-border-radius-sm, 3px);
-  font-size: 0.75em;
+  font-size: calc(var(--antd-font-size, 14px) * 0.75);
   font-weight: 500;
   line-height: inherit;
   vertical-align: super;
@@ -483,7 +484,7 @@
   color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
   padding: 0.2em 0.4em;
   border-radius: var(--antd-border-radius-sm, 3px);
-  font-size: 0.875em;
+  font-size: calc(var(--antd-font-size, 14px) * 0.875);
 }
 
 .chapter-content pre code {
