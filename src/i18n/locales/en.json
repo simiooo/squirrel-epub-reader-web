@@ -49,6 +49,7 @@
     "chapter": "Chapter",
     "chapterProgress": "Chapter {{current}} / {{total}}",
     "readProgress": "{{progress}}% Read",
-    "noContent": "No Content"
+    "noContent": "No Content",
+    "chapterNotFound": "Target chapter not found"
   }
 }

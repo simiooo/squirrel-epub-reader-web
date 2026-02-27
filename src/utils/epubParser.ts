@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import type { BookMetadata, Chapter, ParsedEpub, ParsedChapter } from '../types';
+import type { BookMetadata, Chapter, ParsedEpub, ParsedChapter, EpubImage } from '../types';
 
 export class EpubParser {
   private zip: JSZip | null = null;
@@ -8,8 +8,9 @@ export class EpubParser {
   private manifest: Map<string, { href: string; 'media-type': string; properties?: string }> = new Map();
   private spine: string[] = [];
   private basePath: string = '';
+  private images: Map<string, EpubImage> = new Map();
 
-  async load(file: File | Blob): Promise<ParsedEpub> {
+  async load(file: File | Blob): Promise<ParsedEpub & { images: EpubImage[] }> {
     this.zip = await JSZip.loadAsync(file);
     
     // Find OPF file path from container.xml
@@ -27,7 +28,7 @@ export class EpubParser {
     // Parse table of contents
     const tableOfContents = await this.parseTableOfContents();
     
-    // Parse chapters
+    // Parse chapters (this will also collect images)
     const chapters = await this.parseChapters();
     
     return {
@@ -35,6 +36,7 @@ export class EpubParser {
       cover,
       tableOfContents,
       chapters,
+      images: Array.from(this.images.values()),
     };
   }
 
@@ -362,21 +364,57 @@ export class EpubParser {
       let chapterContent = '';
       
       if (body) {
-        // Fix image paths and links
+        // Process images: extract them and replace src with data attribute
         const images = body.querySelectorAll('img');
-        images.forEach(img => {
+        let imageIndex = 0;
+        for (const img of images) {
           const src = img.getAttribute('src');
           if (src && !src.startsWith('http') && !src.startsWith('data:')) {
-            // This is a relative path, we'll need to handle it differently
-            // For now, leave as is or remove
-            img.remove();
+            // Construct full image path
+            const imagePath = src.startsWith('/') 
+              ? src.substring(1) 
+              : this.basePath + src;
+            
+            // Try to extract image from ZIP
+            const imageFile = this.zip.file(imagePath);
+            if (imageFile) {
+              const blob = await imageFile.async('blob');
+              const imageId = `img-${idref}-${imageIndex}`;
+              
+              // Store image for later use
+              this.images.set(imageId, {
+                id: imageId,
+                path: imagePath,
+                blob
+              });
+              
+              // Replace src with data attribute for lazy loading
+              img.setAttribute('data-epub-image', imageId);
+              img.removeAttribute('src');
+              img.classList.add('epub-lazy-image');
+              
+              // Set a placeholder style
+              img.style.minHeight = '100px';
+              img.style.backgroundColor = 'var(--antd-color-fill-secondary, #f5f5f5)';
+              
+              imageIndex++;
+            } else {
+              // Image not found in EPUB, remove it
+              img.remove();
+            }
           }
-        });
+        }
         
+        // Process links: mark them for handling by the reader component
         const links = body.querySelectorAll('a');
         links.forEach(link => {
-          link.removeAttribute('href');
-          link.style.cursor = 'default';
+          const href = link.getAttribute('href');
+          if (href) {
+            // Keep href but add data attribute for identification
+            link.setAttribute('data-epub-link', 'true');
+            // Remove target to prevent default external navigation
+            link.removeAttribute('target');
+          }
         });
 
         // Remove empty block elements that only contain &nbsp; or whitespace
@@ -388,6 +426,12 @@ export class EpubParser {
             const textContent = el.textContent || '';
             const innerHTML = el.innerHTML || '';
             const hasNoChildren = el.childElementCount === 0;
+            
+            // Skip elements that contain important structural elements like tables, images, etc.
+            const hasImportantContent = el.querySelector('table, img, svg, canvas, iframe, video, audio, object, embed, pre, code, blockquote') !== null;
+            if (hasImportantContent) {
+              return;
+            }
             
             // Check if element only contains &nbsp;, whitespace, or is effectively empty
             const isOnlyWhitespace = /^[\s\u00A0]*$/.test(textContent);

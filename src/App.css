@@ -464,6 +464,34 @@
   text-align: center;
 }
 
+/* ==================== LAZY LOADED IMAGES ==================== */
+.chapter-content img.epub-lazy-image {
+  background: linear-gradient(
+    90deg,
+    var(--antd-color-fill-secondary, #f5f5f5) 25%,
+    var(--antd-color-fill, #e8e8e8) 50%,
+    var(--antd-color-fill-secondary, #f5f5f5) 75%
+  );
+  background-size: 200% 100%;
+  animation: epub-image-loading 1.5s ease-in-out infinite;
+  min-height: 100px;
+  border-radius: var(--antd-border-radius, 4px);
+}
+
+@keyframes epub-image-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.chapter-content img.epub-lazy-image[src] {
+  animation: none;
+  background: transparent;
+}
+
 /* ==================== CODE ==================== */
 .chapter-content pre {
   background-color: var(--antd-color-fill-secondary, #f5f5f5);
@@ -478,13 +506,22 @@
   margin: var(--antd-margin, 1em) 0;
 }
 
-.chapter-content code {
+.chapter-content code,
+.chapter-content tt {
   font-family: var(--antd-font-family-code, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace);
   background-color: var(--antd-color-fill, rgba(0, 0, 0, 0.06));
   color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
   padding: 0.2em 0.4em;
   border-radius: var(--antd-border-radius-sm, 3px);
   font-size: calc(var(--antd-font-size, 14px) * 0.875);
+}
+
+/* tt标签内部的span继承代码样式 */
+.chapter-content tt span {
+  font-family: inherit;
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 .chapter-content pre code {

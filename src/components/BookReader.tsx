@@ -23,8 +23,14 @@ import {
 } from '@ant-design/icons';
 import { TableOfContents } from './TableOfContents';
 import { epubParser } from '../utils/epubParser';
+import { createImageManager, disposeImageManager, getImageManager } from '../utils/imageManager';
 import { saveProgress, getProgress } from '../db';
 import type { Book, ParsedChapter, ReadingProgress, Chapter } from '../types';
+
+// Utility function to check if URL is external
+const isExternalUrl = (href: string): boolean => {
+  return /^https?:\/\//i.test(href) || /^mailto:/i.test(href) || /^ftp:/i.test(href);
+};
 
 const { Content, Sider } = Layout;
 const { Title, Text } = Typography;
@@ -104,6 +110,16 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
         setChapters(parsed.chapters);
         setTableOfContents(parsed.tableOfContents);
 
+        // Initialize image manager for this book
+        const imageManager = createImageManager(book.id, { maxCacheSize: 10 });
+        
+        // Register all extracted images
+        parsed.images.forEach((img) => {
+          imageManager.registerImage(img.id, img.path, img.blob);
+        });
+        
+        console.log(`[BookReader] Registered ${parsed.images.length} images for book ${book.id}`);
+
         // Build mapping from TOC to chapter index
         const mapping = buildTocToChapterMap(parsed.tableOfContents, parsed.chapters);
         setTocToChapterMap(mapping);
@@ -127,6 +143,11 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
     };
 
     loadBook();
+
+    // Cleanup image manager when unmounting or changing books
+    return () => {
+      disposeImageManager(book.id);
+    };
   }, [book, buildTocToChapterMap]);
 
   // Save progress when chapter changes
@@ -153,6 +174,26 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
       saveReadingProgress();
     }
   }, [currentChapterIndex, chapters.length, saveReadingProgress]);
+
+  // Setup lazy loading for images when chapter changes
+  useEffect(() => {
+    if (!contentRef.current || chapters.length === 0) return;
+
+    const imageManager = getImageManager(book.id);
+    if (!imageManager) return;
+
+    // Wait for DOM to update
+    const timeoutId = setTimeout(() => {
+      imageManager.setupContainer(contentRef.current!);
+      
+      const stats = imageManager.getStats();
+      console.log(`[BookReader] Image stats: ${stats.cached}/${stats.registered} loaded`);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [currentChapterIndex, chapters.length, book.id]);
 
   // Handle chapter navigation
   const goToChapter = (index: number) => {
@@ -204,6 +245,70 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
   };
 
   const currentTocId = findCurrentTocId();
+
+  // Handle link clicks within chapter content
+  const handleContentClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    const anchor = target.closest('a');
+    
+    if (!anchor) return;
+    
+    const href = anchor.getAttribute('href');
+    if (!href) return;
+    
+    // Handle external links
+    if (isExternalUrl(href)) {
+      event.preventDefault();
+      window.open(href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    
+    // Handle internal EPUB links
+    event.preventDefault();
+    
+    // Parse href: could be "#anchor", "file.xhtml", or "file.xhtml#anchor"
+    const [filePart, anchorPart] = href.split('#');
+    const targetFile = filePart || '';
+    const targetAnchor = anchorPart || '';
+    
+    // Find target chapter
+    let targetChapterIndex = -1;
+    
+    if (!targetFile) {
+      // Only anchor - stay on current chapter
+      targetChapterIndex = currentChapterIndex;
+    } else {
+      // Find chapter by file name
+      targetChapterIndex = chapters.findIndex(ch => {
+        const chFile = ch.href.split('#')[0];
+        return chFile === targetFile || 
+               ch.href.includes(targetFile) || 
+               targetFile.includes(chFile.split('/').pop() || '');
+      });
+    }
+    
+    if (targetChapterIndex >= 0) {
+      // Navigate to target chapter
+      setCurrentChapterIndex(targetChapterIndex);
+      
+      // If there's an anchor, scroll to it after chapter loads
+      if (targetAnchor) {
+        setTimeout(() => {
+          const element = contentRef.current?.querySelector(`#${targetAnchor}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      } else {
+        // Scroll to top of content
+        if (contentRef.current) {
+          contentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    } else {
+      message.warning(t('reader.chapterNotFound'));
+    }
+  }, [chapters, currentChapterIndex, t]);
 
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden' }}>
@@ -322,8 +427,10 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
 
               {/* Chapter Content - Styled with Ant Design Typography */}
               <div
+                ref={contentRef}
                 className="chapter-content"
                 dangerouslySetInnerHTML={{ __html: currentChapter.content }}
+                onClick={handleContentClick}
                 style={{
                   fontSize: token.fontSizeLG,
                   lineHeight: token.lineHeightLG,

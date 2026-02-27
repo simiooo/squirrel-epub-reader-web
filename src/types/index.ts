@@ -56,3 +56,9 @@ export interface ParsedEpub {
   tableOfContents: Chapter[];
   chapters: ParsedChapter[];
 }
+
+export interface EpubImage {
+  id: string;
+  path: string;
+  blob: Blob;
+}

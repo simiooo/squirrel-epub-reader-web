@@ -49,6 +49,7 @@
     "chapter": "章",
     "chapterProgress": "第 {{current}} / {{total}} 章",
     "readProgress": "{{progress}}% 已读",
-    "noContent": "暂无内容"
+    "noContent": "暂无内容",
+    "chapterNotFound": "未找到目标章节"
   }
 }
