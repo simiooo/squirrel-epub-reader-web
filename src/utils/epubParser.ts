@@ -378,6 +378,26 @@ export class EpubParser {
           link.removeAttribute('href');
           link.style.cursor = 'default';
         });
+
+        // Remove empty block elements that only contain &nbsp; or whitespace
+        // These are often used for spacing in EPUBs but create too much vertical space
+        const emptyBlockSelectors = ['p', 'div', 'section', 'article'];
+        emptyBlockSelectors.forEach(selector => {
+          const elements = body.querySelectorAll(selector);
+          elements.forEach(el => {
+            const textContent = el.textContent || '';
+            const innerHTML = el.innerHTML || '';
+            const hasNoChildren = el.childElementCount === 0;
+            
+            // Check if element only contains &nbsp;, whitespace, or is effectively empty
+            const isOnlyWhitespace = /^[\s\u00A0]*$/.test(textContent);
+            const isOnlyNbsp = /^(\s|&nbsp;|&#160;|\xA0)*$/i.test(innerHTML.trim());
+            
+            if ((isOnlyWhitespace || isOnlyNbsp || textContent.trim().length === 0) && hasNoChildren) {
+              el.remove();
+            }
+          });
+        });
         
         chapterContent = body.innerHTML;
       } else {

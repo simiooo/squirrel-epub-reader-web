@@ -3,8 +3,16 @@
   height: 100%;
 }
 
-/* Chapter content styles */
+/* Chapter content styles - using Ant Design CSS Variables */
+/* All styles reference antd tokens for consistent theming */
+
 .chapter-content {
+  /* Base typography using antd tokens */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--antd-font-size-lg, 16px);
+  line-height: var(--antd-line-height-lg, 1.8);
+  color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
+  
   /* Ensure text is selectable */
   user-select: text !important;
   -webkit-user-select: text !important;
@@ -19,90 +27,509 @@
   -ms-user-select: text !important;
 }
 
-.chapter-content p {
-  margin-bottom: 1.2em;
-  text-indent: 2em;
-  text-align: justify;
+/* ==================== DIV ==================== */
+.chapter-content div {
+  margin-bottom: var(--antd-margin-sm, 0.5em);
+  color: var(--antd-color-text, inherit);
 }
 
+/* ==================== PARAGRAPHS ==================== */
+.chapter-content p {
+  margin-bottom: var(--antd-margin-md, 1.2em);
+  text-indent: 2em;
+  text-align: justify;
+  color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
+  line-height: var(--antd-line-height-lg, 1.8);
+}
+
+.chapter-content p:first-child {
+  margin-top: 0;
+}
+
+.chapter-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* ==================== HEADINGS ==================== */
 .chapter-content h1,
 .chapter-content h2,
 .chapter-content h3,
 .chapter-content h4,
 .chapter-content h5,
 .chapter-content h6 {
-  margin-top: 1.5em;
-  margin-bottom: 0.8em;
+  margin-top: var(--antd-margin-lg, 1.5em);
+  margin-bottom: var(--antd-margin, 0.8em);
+  font-weight: 600;
+  color: var(--antd-color-text-heading, rgba(0, 0, 0, 0.88));
+  line-height: var(--antd-line-height, 1.5);
+}
+
+.chapter-content h1 {
+  font-size: calc(var(--antd-font-size-lg, 16px) * 2);
+  margin-top: var(--antd-margin-xl, 2em);
+  margin-bottom: var(--antd-margin-lg, 1.5em);
+  border-bottom: 1px solid var(--antd-color-border-secondary, #f0f0f0);
+  padding-bottom: var(--antd-padding-sm, 0.5em);
+}
+
+.chapter-content h2 {
+  font-size: calc(var(--antd-font-size-lg, 16px) * 1.75);
+  margin-top: var(--antd-margin-lg, 1.5em);
+  margin-bottom: var(--antd-margin, 0.8em);
+}
+
+.chapter-content h3 {
+  font-size: calc(var(--antd-font-size-lg, 16px) * 1.5);
+  margin-top: var(--antd-margin-lg, 1.2em);
+  margin-bottom: var(--antd-margin-sm, 0.6em);
+}
+
+.chapter-content h4 {
+  font-size: calc(var(--antd-font-size-lg, 16px) * 1.25);
+  margin-top: var(--antd-margin, 1em);
+  margin-bottom: var(--antd-margin-sm, 0.5em);
+}
+
+.chapter-content h5 {
+  font-size: var(--antd-font-size-lg, 16px);
+  margin-top: var(--antd-margin, 1em);
+  margin-bottom: var(--antd-margin-xs, 0.4em);
+}
+
+.chapter-content h6 {
+  font-size: var(--antd-font-size, 14px);
+  margin-top: var(--antd-margin, 1em);
+  margin-bottom: var(--antd-margin-xs, 0.4em);
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.65));
+}
+
+/* ==================== BLOCKQUOTE ==================== */
+.chapter-content blockquote {
+  margin: var(--antd-margin-md, 1em) 0;
+  padding: var(--antd-padding-sm, 0.5em) var(--antd-padding, 1em);
+  padding-left: var(--antd-padding-md, 1.2em);
+  border-left: 3px solid var(--antd-color-border, #d9d9d9);
+  background-color: var(--antd-color-fill-alter, rgba(0, 0, 0, 0.02));
+  border-radius: var(--antd-border-radius, 4px);
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.65));
+}
+
+.chapter-content blockquote > p {
+  margin-bottom: var(--antd-margin-xs, 0.5em);
+  margin-top: var(--antd-margin-xs, 0.5em);
+  text-indent: 0;
+  color: inherit;
+}
+
+.chapter-content blockquote > p:first-child {
+  margin-top: 0;
+}
+
+.chapter-content blockquote > p:last-child {
+  margin-bottom: 0;
+}
+
+/* Nested blockquotes */
+.chapter-content blockquote blockquote {
+  margin: var(--antd-margin-xs, 0.5em) 0;
+  border-left-color: var(--antd-color-border-secondary, #f0f0f0);
+}
+
+/* ==================== LISTS ==================== */
+.chapter-content ul,
+.chapter-content ol {
+  margin: var(--antd-margin, 1em) 0;
+  margin-left: var(--antd-margin-lg, 1.5em);
+  padding-left: var(--antd-padding, 1em);
+  color: var(--antd-color-text, inherit);
+}
+
+.chapter-content ul {
+  list-style-type: disc;
+}
+
+.chapter-content ol {
+  list-style-type: decimal;
+}
+
+.chapter-content ul ul,
+.chapter-content ol ul {
+  list-style-type: circle;
+  margin-top: var(--antd-margin-xs, 0.25em);
+  margin-bottom: var(--antd-margin-xs, 0.25em);
+}
+
+.chapter-content ul ul ul,
+.chapter-content ol ol ul {
+  list-style-type: square;
+}
+
+.chapter-content li {
+  margin-bottom: var(--antd-margin-xs, 0.5em);
+  line-height: var(--antd-line-height-lg, 1.8);
+  color: var(--antd-color-text, inherit);
+}
+
+.chapter-content li:last-child {
+  margin-bottom: 0;
+}
+
+/* ==================== TEXT FORMATTING ==================== */
+.chapter-content strong,
+.chapter-content b {
+  font-weight: 600;
+  color: var(--antd-color-text-heading, inherit);
+}
+
+.chapter-content em,
+.chapter-content i {
+  font-style: italic;
+  color: var(--antd-color-text, inherit);
+}
+
+.chapter-content small {
+  font-size: var(--antd-font-size-sm, 12px);
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.65));
+}
+
+.chapter-content sup,
+.chapter-content sub {
+  font-size: var(--antd-font-size-sm, 12px);
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+.chapter-content sup {
+  top: -0.5em;
+}
+
+/* ==================== FOOTNOTES: sup + em pattern ==================== */
+/* Style for footnotes where a sup element precedes an em element */
+/* Designed to match Ant Design's Tag and Typography styles */
+
+/* The sup element acts as footnote marker - styled like Ant Design Tag */
+.chapter-content sup:has(a) {
+  display: inline;
+  padding: 0.1em 0.3em;
+  margin: 0 0.15em;
+  background-color: var(--antd-color-primary-bg, rgba(24, 144, 255, 0.06));
+  border: 1px solid var(--antd-color-primary-border, rgba(24, 144, 255, 0.2));
+  color: var(--antd-color-primary, #1890ff);
+  border-radius: var(--antd-border-radius-sm, 3px);
+  font-size: 0.75em;
+  font-weight: 500;
+  line-height: inherit;
+  vertical-align: super;
+  position: relative;
+  top: -0.1em;
+  transition: all 0.2s;
+}
+
+.chapter-content sup:has(a) a {
+  color: var(--antd-color-primary, #1890ff);
+  text-decoration: none;
+}
+
+.chapter-content sup:has(a) a:hover {
+  color: var(--antd-color-primary-hover, #40a9ff);
+}
+
+.chapter-content sup:has(a):hover {
+  background-color: var(--antd-color-primary, #1890ff);
+  border-color: var(--antd-color-primary, #1890ff);
+}
+
+.chapter-content sup:has(a):hover a {
+  color: #fff;
+}
+
+/* The em element acts as footnote content - styled like Ant Design Typography.Text type="secondary" */
+.chapter-content sup:has(a) + em,
+.chapter-content sup + em {
+  display: inline;
+  margin-left: 0;
+  padding-left: var(--antd-padding-xs, 8px);
+  border-left: 2px solid var(--antd-color-primary-border, rgba(24, 144, 255, 0.3));
+  font-style: normal;
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.65));
+  font-size: calc(var(--antd-font-size, 14px) * 0.92);
+  line-height: var(--antd-line-height, 1.5);
+}
+
+/* Alternative style for p elements containing footnote pattern */
+.chapter-content p:has(> sup:first-child + em) {
+  text-indent: 0;
+  margin: var(--antd-margin-sm, 8px) 0;
+}
+
+.chapter-content mark {
+  background-color: var(--antd-color-primary-bg, rgba(24, 144, 255, 0.15));
+  color: var(--antd-color-text, inherit);
+  padding: 0 0.2em;
+  border-radius: var(--antd-border-radius-sm, 2px);
+}
+
+.chapter-content del,
+.chapter-content s {
+  text-decoration: line-through;
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.45));
+}
+
+.chapter-content ins,
+.chapter-content u {
+  text-decoration: underline;
+  text-decoration-color: var(--antd-color-primary, #1890ff);
+}
+
+.chapter-content abbr[title] {
+  border-bottom: 1px dotted var(--antd-color-border, #d9d9d9);
+  cursor: help;
+}
+
+.chapter-content cite {
+  font-style: italic;
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.65));
+}
+
+.chapter-content dfn {
+  font-style: italic;
   font-weight: 600;
 }
 
+.chapter-content kbd {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: var(--antd-font-size-sm, 12px);
+  background-color: var(--antd-color-fill-secondary, #f5f5f5);
+  border: 1px solid var(--antd-color-border-secondary, #d9d9d9);
+  border-radius: var(--antd-border-radius-sm, 3px);
+  padding: 0.1em 0.4em;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== SPAN ==================== */
+.chapter-content span {
+  color: inherit;
+}
+
+/* ==================== LINKS ==================== */
+.chapter-content a {
+  color: var(--antd-color-primary, #1890ff);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.chapter-content a:hover {
+  color: var(--antd-color-primary-hover, #40a9ff);
+  text-decoration: underline;
+}
+
+.chapter-content a:active {
+  color: var(--antd-color-primary-active, #096dd9);
+}
+
+.chapter-content a:visited {
+  color: var(--antd-color-primary, #1890ff);
+}
+
+/* ==================== HORIZONTAL RULE ==================== */
+.chapter-content hr {
+  border: none;
+  border-top: 1px solid var(--antd-color-border-secondary, #f0f0f0);
+  margin: var(--antd-margin-lg, 1.5em) 0;
+}
+
+/* ==================== IMAGES ==================== */
 .chapter-content img {
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 1em auto;
+  margin: var(--antd-margin, 1em) auto;
+  border-radius: var(--antd-border-radius, 4px);
 }
 
-.chapter-content blockquote {
-  margin: 1em 0;
-  padding: 0.5em 1em;
-  border-left: 4px solid #ccc;
-  background-color: rgba(0, 0, 0, 0.03);
-  font-style: italic;
+.chapter-content figure {
+  margin: var(--antd-margin-lg, 1.5em) 0;
+  text-align: center;
 }
 
+.chapter-content figcaption {
+  font-size: var(--antd-font-size-sm, 12px);
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.65));
+  margin-top: var(--antd-margin-xs, 0.5em);
+  text-align: center;
+}
+
+/* ==================== CODE ==================== */
 .chapter-content pre {
-  background-color: #f5f5f5;
-  padding: 1em;
+  background-color: var(--antd-color-fill-secondary, #f5f5f5);
+  color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
+  padding: var(--antd-padding, 1em);
   overflow-x: auto;
-  border-radius: 4px;
+  border-radius: var(--antd-border-radius, 4px);
+  border: 1px solid var(--antd-color-border-secondary, #f0f0f0);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: var(--antd-font-size, 14px);
+  line-height: var(--antd-line-height, 1.5);
+  margin: var(--antd-margin, 1em) 0;
 }
 
 .chapter-content code {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--antd-color-fill, rgba(0, 0, 0, 0.06));
+  color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
   padding: 0.2em 0.4em;
-  border-radius: 3px;
+  border-radius: var(--antd-border-radius-sm, 3px);
+  font-size: 0.875em;
 }
 
+.chapter-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+/* ==================== TABLES ==================== */
 .chapter-content table {
   width: 100%;
   border-collapse: collapse;
-  margin: 1em 0;
+  margin: var(--antd-margin, 1em) 0;
+  font-size: var(--antd-font-size, 14px);
+  border-radius: var(--antd-border-radius, 4px);
+  overflow: hidden;
 }
 
 .chapter-content th,
 .chapter-content td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  border: 1px solid var(--antd-color-border-secondary, #f0f0f0);
+  padding: var(--antd-padding-sm, 8px) var(--antd-padding, 12px);
   text-align: left;
+  color: var(--antd-color-text, inherit);
 }
 
 .chapter-content th {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--antd-color-fill-secondary, rgba(0, 0, 0, 0.02));
   font-weight: 600;
+  color: var(--antd-color-text-heading, rgba(0, 0, 0, 0.88));
 }
 
-/* Scrollbar styles */
+.chapter-content tr:nth-child(even) {
+  background-color: var(--antd-color-fill-alter, rgba(0, 0, 0, 0.01));
+}
+
+.chapter-content tr:hover {
+  background-color: var(--antd-color-fill, rgba(0, 0, 0, 0.03));
+}
+
+.chapter-content caption {
+  font-size: var(--antd-font-size-sm, 12px);
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.65));
+  margin-bottom: var(--antd-margin-xs, 0.5em);
+  text-align: center;
+}
+
+/* ==================== DEFINITION LISTS ==================== */
+.chapter-content dl {
+  margin: var(--antd-margin, 1em) 0;
+}
+
+.chapter-content dt {
+  font-weight: 600;
+  color: var(--antd-color-text-heading, inherit);
+  margin-top: var(--antd-margin-sm, 0.5em);
+}
+
+.chapter-content dd {
+  margin-left: var(--antd-margin-lg, 1.5em);
+  margin-bottom: var(--antd-margin-sm, 0.5em);
+  color: var(--antd-color-text, inherit);
+}
+
+/* ==================== ADDRESS ==================== */
+.chapter-content address {
+  font-style: italic;
+  color: var(--antd-color-text-secondary, rgba(0, 0, 0, 0.65));
+  margin: var(--antd-margin, 1em) 0;
+  padding: var(--antd-padding-sm, 0.5em);
+  border-left: 2px solid var(--antd-color-border-secondary, #f0f0f0);
+  padding-left: var(--antd-padding, 1em);
+}
+
+/* ==================== DETAILS/SUMMARY ==================== */
+.chapter-content details {
+  margin: var(--antd-margin, 1em) 0;
+  padding: var(--antd-padding-sm, 0.5em) var(--antd-padding, 1em);
+  border: 1px solid var(--antd-color-border-secondary, #f0f0f0);
+  border-radius: var(--antd-border-radius, 4px);
+  background-color: var(--antd-color-bg-container, #ffffff);
+}
+
+.chapter-content summary {
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--antd-color-text-heading, inherit);
+  outline: none;
+}
+
+.chapter-content summary:hover {
+  color: var(--antd-color-primary, #1890ff);
+}
+
+/* ==================== DETAILS/SUMMARY ==================== */
+.chapter-content details {
+  margin: var(--antd-margin, 1em) 0;
+  padding: var(--antd-padding-sm, 0.5em) var(--antd-padding, 1em);
+  border: 1px solid var(--antd-color-border-secondary, #f0f0f0);
+  border-radius: var(--antd-border-radius, 4px);
+  background-color: var(--antd-color-bg-container, #ffffff);
+}
+
+.chapter-content summary {
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--antd-color-text-heading, inherit);
+  outline: none;
+}
+
+.chapter-content summary:hover {
+  color: var(--antd-color-primary, #1890ff);
+}
+
+/* ==================== FIELDSET/LEGEND ==================== */
+.chapter-content fieldset {
+  border: 1px solid var(--antd-color-border-secondary, #f0f0f0);
+  border-radius: var(--antd-border-radius, 4px);
+  padding: var(--antd-padding, 1em);
+  margin: var(--antd-margin, 1em) 0;
+}
+
+.chapter-content legend {
+  font-weight: 600;
+  padding: 0 var(--antd-padding-sm, 0.5em);
+  color: var(--antd-color-text-heading, inherit);
+}
+
+/* ==================== SCROLLBAR ==================== */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--antd-color-fill-secondary, #f1f1f1);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--antd-color-fill, #c1c1c1);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: var(--antd-color-text-secondary, #a1a1a1);
 }
 
-/* Global styles */
+/* ==================== GLOBAL ==================== */
 * {
   box-sizing: border-box;
 }
