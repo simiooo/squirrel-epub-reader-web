@@ -437,8 +437,19 @@ export class EpubParser {
             const isOnlyWhitespace = /^[\s\u00A0]*$/.test(textContent);
             const isOnlyNbsp = /^(\s|&nbsp;|&#160;|\xA0)*$/i.test(innerHTML.trim());
             
+            // Check if element has id (it might be an anchor target)
+            const hasId = el.hasAttribute('id') && el.getAttribute('id');
+            
             if ((isOnlyWhitespace || isOnlyNbsp || textContent.trim().length === 0) && hasNoChildren) {
-              el.remove();
+              if (hasId) {
+                // Keep anchor targets but hide them visually (height 1px, overflow hidden)
+                (el as HTMLElement).style.height = '1px';
+                (el as HTMLElement).style.overflow = 'hidden';
+                (el as HTMLElement).style.visibility = 'hidden';
+              } else {
+                // Remove truly empty elements without anchors
+                el.remove();
+              }
             }
           });
         });
