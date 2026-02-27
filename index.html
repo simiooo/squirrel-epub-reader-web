@@ -19,15 +19,14 @@
     
     <!-- 
       异步加载网络字体 - 避免阻塞页面渲染
-      衬线字体用于标题，无衬线字体用于正文
+      中文统一使用小米字体(MiSans)
     -->
     <script>
       // 异步加载字体 CSS
       (function() {
         'use strict';
         
-        // 字体配置：衬线(标题) + 无衬线(正文) + 英文优化
-        // MiSans(小米) + Noto Serif SC(思源宋体) + Inter
+        // 字体配置：中文统一 MiSans，西文标题用 Nunito，正文用 Georgia(系统)
         const fonts = [
           {
             name: 'MiSans',
@@ -35,13 +34,8 @@
             type: 'sans-serif'
           },
           {
-            name: 'NotoSerifSC',
-            url: 'https://fonts.bunny.net/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap',
-            type: 'serif'
-          },
-          {
-            name: 'Inter',
-            url: 'https://fonts.bunny.net/css2?family=Inter:wght@400;500;600&display=swap',
+            name: 'Nunito',
+            url: 'https://fonts.bunny.net/css2?family=Nunito:wght@400;500;600;700&display=swap',
             type: 'latin'
           }
         ];
