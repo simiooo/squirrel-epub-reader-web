@@ -16,6 +16,65 @@
     
     <!-- iOS Splash Screen Images -->
     <link rel="apple-touch-startup-image" href="/apple-touch-icon.png" />
+    
+    <!-- 
+      异步加载网络字体 - 避免阻塞页面渲染
+      使用 Font Face Observer 检测字体加载状态
+    -->
+    <script>
+      // 异步加载字体 CSS
+      (function() {
+        'use strict';
+        
+        // 字体配置
+        const fonts = [
+          {
+            name: 'LXGWWenKai',
+            url: 'https://chinese-font.netlify.app/packages/lxgwwenkai/dist/LXGWWenKai-Regular/result.css'
+          },
+          {
+            name: 'Inter',
+            url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap'
+          }
+        ];
+        
+        // 检查是否需要加载字体（避免重复加载）
+        if (!window.__fontsLoaded) {
+          window.__fontsLoaded = true;
+          
+          // 使用 requestIdleCallback 在浏览器空闲时加载
+          const loadFonts = function() {
+            fonts.forEach(function(font) {
+              const link = document.createElement('link');
+              link.href = font.url;
+              link.rel = 'stylesheet';
+              link.media = 'print'; // 初始设置为 print 媒体，不阻塞渲染
+              link.onload = function() {
+                this.media = 'all'; // 加载完成后应用到所有媒体
+                document.documentElement.classList.add('font-' + font.name + '-loaded');
+              };
+              link.onerror = function() {
+                console.warn('Failed to load font:', font.name);
+              };
+              document.head.appendChild(link);
+            });
+          };
+          
+          // 优先使用 requestIdleCallback，如果不支持则使用 setTimeout
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(loadFonts, { timeout: 2000 });
+          } else {
+            // 延迟 100ms 加载，确保关键渲染路径完成
+            setTimeout(loadFonts, 100);
+          }
+        }
+      })();
+    </script>
+    
+    <!-- 预连接到字体 CDN - 提高加载速度但不阻塞 -->
+    <link rel="preconnect" href="https://chinese-font.netlify.app" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
   </head>
   <body>
     <div id="root"></div>

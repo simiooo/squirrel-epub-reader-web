@@ -347,6 +347,8 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
                   '--antd-border-radius': `${token.borderRadius}px`,
                   '--antd-border-radius-lg': `${token.borderRadiusLG}px`,
                   '--antd-border-radius-sm': `${token.borderRadiusSM}px`,
+                  '--antd-font-family': token.fontFamily,
+                  '--antd-font-family-code': token.fontFamilyCode,
                   '--antd-font-size': `${token.fontSize}px`,
                   '--antd-font-size-lg': `${token.fontSizeLG}px`,
                   '--antd-font-size-sm': `${token.fontSizeSM}px`,
