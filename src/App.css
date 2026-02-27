@@ -9,43 +9,63 @@
 /* ==================== FONT LOADING STATES ==================== */
 /* 字体加载完成前的回退样式 - 使用系统字体确保即时渲染 */
 
-/* 正文：无衬线字体 */
+/* 正文：有衬线字体 */
 .chapter-content {
   /* Base typography using antd tokens with web font fallbacks */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  font-family: Georgia, 'Times New Roman', 'Songti SC', serif;
   font-size: var(--antd-font-size-lg, 16px);
 }
 
-/* 标题：衬线字体（加载前使用系统默认） */
+/* 标题：无衬线字体（加载前使用系统默认） */
 .chapter-content h1,
 .chapter-content h2,
 .chapter-content h3,
 .chapter-content h4,
 .chapter-content h5,
 .chapter-content h6 {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+}
+
+/* h标签内的span继承无衬线字体 */
+.chapter-content h1 span,
+.chapter-content h2 span,
+.chapter-content h3 span,
+.chapter-content h4 span,
+.chapter-content h5 span,
+.chapter-content h6 span {
+  font-family: inherit;
 }
 
 /* 网络字体加载完成后的样式 - 平滑切换到优雅字体 */
 
-/* MiSans 加载完成后 - 正文使用无衬线 */
-.font-MiSans-loaded .chapter-content {
-  font-family: 'MiSans', 'MiSans Regular', 'MiSans-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+/* Noto Serif SC 加载完成后 - 正文使用有衬线 */
+.font-NotoSerifSC-loaded .chapter-content {
+  font-family: 'Noto Serif SC', 'NotoSerifSC', 'Source Han Serif CN', Georgia, 'Times New Roman', serif;
 }
 
-/* Noto Serif SC 加载完成后 - 标题使用衬线 */
-.font-NotoSerifSC-loaded .chapter-content h1,
-.font-NotoSerifSC-loaded .chapter-content h2,
-.font-NotoSerifSC-loaded .chapter-content h3,
-.font-NotoSerifSC-loaded .chapter-content h4,
-.font-NotoSerifSC-loaded .chapter-content h5,
-.font-NotoSerifSC-loaded .chapter-content h6 {
-  font-family: 'Noto Serif SC', 'NotoSerifSC', 'Source Han Serif CN', Georgia, 'Times New Roman', serif;
+/* MiSans 加载完成后 - 标题使用无衬线 */
+.font-MiSans-loaded .chapter-content h1,
+.font-MiSans-loaded .chapter-content h2,
+.font-MiSans-loaded .chapter-content h3,
+.font-MiSans-loaded .chapter-content h4,
+.font-MiSans-loaded .chapter-content h5,
+.font-MiSans-loaded .chapter-content h6 {
+  font-family: 'MiSans', 'MiSans Regular', 'MiSans-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* h标签内的span继承无衬线字体 */
+.font-MiSans-loaded .chapter-content h1 span,
+.font-MiSans-loaded .chapter-content h2 span,
+.font-MiSans-loaded .chapter-content h3 span,
+.font-MiSans-loaded .chapter-content h4 span,
+.font-MiSans-loaded .chapter-content h5 span,
+.font-MiSans-loaded .chapter-content h6 span {
+  font-family: inherit;
 }
 
 /* Inter 加载完成后 - 西文优化 */
 .font-Inter-loaded .chapter-content {
-  font-family: 'MiSans', 'MiSans Regular', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Noto Serif SC', 'Inter', Georgia, serif;
 }
 
 .font-Inter-loaded .chapter-content h1,
@@ -54,12 +74,22 @@
 .font-Inter-loaded .chapter-content h4,
 .font-Inter-loaded .chapter-content h5,
 .font-Inter-loaded .chapter-content h6 {
-  font-family: 'Noto Serif SC', 'Inter', Georgia, serif;
+  font-family: 'MiSans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* h标签内的span继承无衬线字体 */
+.font-Inter-loaded .chapter-content h1 span,
+.font-Inter-loaded .chapter-content h2 span,
+.font-Inter-loaded .chapter-content h3 span,
+.font-Inter-loaded .chapter-content h4 span,
+.font-Inter-loaded .chapter-content h5 span,
+.font-Inter-loaded .chapter-content h6 span {
+  font-family: inherit;
 }
 
 /* 所有字体都加载完成后的最终样式 */
 .font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content {
-  font-family: 'MiSans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Noto Serif SC', 'Inter', Georgia, serif;
 }
 
 .font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h1,
@@ -68,7 +98,17 @@
 .font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h4,
 .font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h5,
 .font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h6 {
-  font-family: 'Noto Serif SC', 'Inter', Georgia, serif;
+  font-family: 'MiSans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* h标签内的span继承无衬线字体 */
+.font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h1 span,
+.font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h2 span,
+.font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h3 span,
+.font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h4 span,
+.font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h5 span,
+.font-MiSans-loaded.font-NotoSerifSC-loaded.font-Inter-loaded .chapter-content h6 span {
+  font-family: inherit;
 }
 
 /* chapter-content 基础样式 */
