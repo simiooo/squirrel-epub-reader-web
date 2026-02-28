@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Layout,
@@ -23,7 +23,7 @@ import {
 } from '@ant-design/icons';
 import { TableOfContents } from './TableOfContents';
 import { epubParser } from '../utils/epubParser';
-import { createImageManager, disposeImageManager, getImageManager } from '../utils/imageManager';
+import { createImageManager, ImageResourceManager } from '../utils/imageManager';
 import { saveProgress, getProgress } from '../db';
 import type { Book, ParsedChapter, ReadingProgress, Chapter } from '../types';
 
@@ -47,9 +47,11 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
   const [chapters, setChapters] = useState<ParsedChapter[]>([]);
   const [tableOfContents, setTableOfContents] = useState<Chapter[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+  const [imageManager, setImageManager] = useState<ImageResourceManager>()
   const [tocVisible, setTocVisible] = useState(true);
   const [loading, setLoading] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
+  const chapterContentRef = useRef<HTMLDivElement>(null);
   const [, _setProgress] = useState<ReadingProgress | null>(null);
   const [tocToChapterMap, setTocToChapterMap] = useState<Map<string, number>>(new Map());
 
@@ -110,16 +112,16 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
         setChapters(parsed.chapters);
         setTableOfContents(parsed.tableOfContents);
 
-        // Initialize image manager for this book
-        const imageManager = createImageManager(book.id, { maxCacheSize: 10 });
+        // Initialize image manager for this book (reuse if exists)
+        // Set maxCacheSize to 1000 to handle books with many images
+        const imageManager = createImageManager(book.id, { maxCacheSize: 1000 });
         
         // Register all extracted images
         parsed.images.forEach((img) => {
+          
           imageManager.registerImage(img.id, img.path, img.blob);
         });
-        
-        console.log(`[BookReader] Registered ${parsed.images.length} images for book ${book.id}`);
-
+        setImageManager(imageManager)
         // Build mapping from TOC to chapter index
         const mapping = buildTocToChapterMap(parsed.tableOfContents, parsed.chapters);
         setTocToChapterMap(mapping);
@@ -144,11 +146,13 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
 
     loadBook();
 
-    // Cleanup image manager when unmounting or changing books
+    // Cleanup image manager only when unmounting (not when changing chapters)
     return () => {
-      disposeImageManager(book.id);
+      imageManager?.dispose()
+      setImageManager(undefined)
     };
-  }, [book, buildTocToChapterMap]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book.id]); // Only depend on book.id, not the entire book object
 
   // Save progress when chapter changes
   const saveReadingProgress = useCallback(async () => {
@@ -174,26 +178,6 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
       saveReadingProgress();
     }
   }, [currentChapterIndex, chapters.length, saveReadingProgress]);
-
-  // Setup lazy loading for images when chapter changes
-  useEffect(() => {
-    if (!contentRef.current || chapters.length === 0) return;
-
-    const imageManager = getImageManager(book.id);
-    if (!imageManager) return;
-
-    // Wait for DOM to update
-    const timeoutId = setTimeout(() => {
-      imageManager.setupContainer(contentRef.current!);
-      
-      const stats = imageManager.getStats();
-      console.log(`[BookReader] Image stats: ${stats.cached}/${stats.registered} loaded`);
-    }, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [currentChapterIndex, chapters.length, book.id]);
 
   // Handle chapter navigation
   const goToChapter = (index: number) => {
@@ -228,7 +212,36 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
   };
 
   // Get current chapter
-  const currentChapter = chapters[currentChapterIndex];
+  const currentChapter = useMemo(() => {
+    const chapter = chapters[currentChapterIndex];
+    if (!chapter || !imageManager) return chapter;
+
+    // Parse HTML and replace img src with object URLs
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(chapter.content, 'text/html');
+    const images = doc.querySelectorAll('img');
+
+    images.forEach((img) => {
+      const imageId = img.dataset["epubImage"];
+      
+      if (imageId) {
+        // Get the image ID from the src (EPUB images are referenced by relative path)
+        // The image ID might be the full path or just the filename
+        const imageUrl = imageManager.getImageUrl(imageId);
+        if (imageUrl) {
+          img.setAttribute('src', imageUrl);
+        }
+      }
+    });
+
+    // Return chapter with processed content
+    return {
+      ...chapter,
+      content: doc.body.innerHTML,
+    };
+  }, [chapters, currentChapterIndex, imageManager]);
+
+
   
   // Find current TOC chapter ID for highlighting
   const findCurrentTocId = (): string | undefined => {
@@ -294,7 +307,7 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
       // If there's an anchor, scroll to it after chapter loads
       if (targetAnchor) {
         setTimeout(() => {
-          const element = contentRef.current?.querySelector(`#${targetAnchor}`);
+          const element = chapterContentRef.current?.querySelector(`#${targetAnchor}`);
           if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
@@ -427,9 +440,9 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
 
               {/* Chapter Content - Styled with Ant Design Typography */}
               <div
-                ref={contentRef}
+                ref={chapterContentRef}
                 className="chapter-content"
-                dangerouslySetInnerHTML={{ __html: currentChapter.content }}
+                dangerouslySetInnerHTML={{ __html: currentChapter?.content || '' }}
                 onClick={handleContentClick}
                 style={{
                   fontSize: token.fontSizeLG,

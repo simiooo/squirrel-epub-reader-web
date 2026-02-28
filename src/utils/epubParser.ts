@@ -378,14 +378,26 @@ export class EpubParser {
             // Try to extract image from ZIP
             const imageFile = this.zip.file(imagePath);
             if (imageFile) {
-              const blob = await imageFile.async('blob');
+              // Get the MIME type from manifest
+              let mimeType = 'image/jpeg'; // Default fallback
+              for (const [, entry] of this.manifest) {
+                if (entry.href === src || entry.href === imagePath || entry.href.endsWith(src)) {
+                  mimeType = entry['media-type'] || mimeType;
+                  break;
+                }
+              }
+              
+              // Read as array buffer first to create blob with correct MIME type
+              const arrayBuffer = await imageFile.async('arraybuffer');
+              const blob = new Blob([arrayBuffer], { type: mimeType });
               const imageId = `img-${idref}-${imageIndex}`;
               
               // Store image for later use
               this.images.set(imageId, {
                 id: imageId,
                 path: imagePath,
-                blob
+                blob,
+                mimeType
               });
               
               // Replace src with data attribute for lazy loading
@@ -399,6 +411,7 @@ export class EpubParser {
               
               imageIndex++;
             } else {
+              console.warn(`[EpubParser] Image not found in EPUB: ${imagePath}, removing img element`);
               // Image not found in EPUB, remove it
               img.remove();
             }

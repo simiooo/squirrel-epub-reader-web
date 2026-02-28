@@ -61,4 +61,5 @@ export interface EpubImage {
   id: string;
   path: string;
   blob: Blob;
+  mimeType: string;
 }
