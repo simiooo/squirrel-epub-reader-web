@@ -7,7 +7,26 @@
  * - Automatic cleanup: Removes object URLs when images leave viewport
  * - Memory limit: Configurable maximum number of cached images
  * - Thread-safe: Handles race conditions from rapid scrolling/chapter changes
+ * - Singleton pattern: One instance per bookId globally
  */
+
+declare global {
+  var __SQUIRREL_IMAGE_MANAGER__: {
+    instances: Map<string, ImageResourceManager>;
+    namespace: string;
+  };
+}
+
+// Singleton namespace constant
+const SINGELTON_NAMESPACE = '__squirrel_image_manager_singleton__';
+
+// Initialize global singleton storage
+if (!globalThis.__SQUIRREL_IMAGE_MANAGER__) {
+  globalThis.__SQUIRREL_IMAGE_MANAGER__ = {
+    instances: new Map<string, ImageResourceManager>(),
+    namespace: SINGELTON_NAMESPACE,
+  };
+}
 
 interface ImageCacheEntry {
   blob: Blob;
@@ -32,7 +51,8 @@ export class ImageResourceManager {
   private cleanupTimeout: number;
 
   constructor(_bookId: string, options: { maxCacheSize?: number; cleanupTimeout?: number } = {}) {
-    this.maxCacheSize = options.maxCacheSize || 10;
+    // Set a very high cache size to prevent premature eviction
+    this.maxCacheSize = options.maxCacheSize || 1000;
     this.cleanupTimeout = options.cleanupTimeout || 5000;
   }
 
@@ -48,6 +68,7 @@ export class ImageResourceManager {
    * Thread-safe: prevents duplicate creation if called concurrently
    */
   getImageUrl(id: string): string | undefined {
+
     // Check if already cached
     const cached = this.cache.get(id);
     if (cached) {
@@ -57,7 +78,6 @@ export class ImageResourceManager {
       if (cached.releaseTimeoutId !== undefined) {
         clearTimeout(cached.releaseTimeoutId);
         cached.releaseTimeoutId = undefined;
-        console.log(`[ImageManager] Cancelled release for: ${id}`);
       }
       
       return cached.objectUrl;
@@ -66,7 +86,6 @@ export class ImageResourceManager {
     // Load from storage
     const resource = this.images.get(id);
     if (!resource) {
-      console.warn(`[ImageManager] Image not found: ${id}`);
       return undefined;
     }
 
@@ -89,7 +108,6 @@ export class ImageResourceManager {
       loading: false,
     });
 
-    console.log(`[ImageManager] Loaded image: ${id} (${this.cache.size}/${this.maxCacheSize})`);
     return objectUrl;
   }
 
@@ -122,14 +140,12 @@ export class ImageResourceManager {
       const rect = element.getBoundingClientRect();
       const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
       if (isInViewport) {
-        console.log(`[ImageManager] Image ${id} still in viewport, skipping release`);
         return;
       }
     }
 
     URL.revokeObjectURL(cached.objectUrl);
     this.cache.delete(id);
-    console.log(`[ImageManager] Released image: ${id} (${this.cache.size}/${this.maxCacheSize})`);
   }
 
   /**
@@ -147,66 +163,22 @@ export class ImageResourceManager {
    * Thread-safe: disconnects existing observers and prevents duplicate loading
    */
   setupLazyLoading(element: HTMLImageElement, imageId: string): void {
-    // Disconnect any existing observer for this specific element
-    const existingObserver = this.observers.get(element);
-    if (existingObserver) {
-      existingObserver.disconnect();
-      this.observers.delete(element);
+    // Load image immediately and keep it loaded
+    const url = this.getImageUrl(imageId);
+    if (url && element.src !== url) {
+      element.src = url;
+      this.setImageElement(imageId, element);
     }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            // Image entered viewport - load it
-            const url = this.getImageUrl(imageId);
-            if (url && element.src !== url) {
-              element.src = url;
-              this.setImageElement(imageId, element);
-            }
-          } else {
-            // Image left viewport - release after delay
-            this.releaseImage(imageId);
-          }
-        });
-      },
-      {
-        root: null,
-        rootMargin: '100px',
-        threshold: 0,
-      }
-    );
-
-    observer.observe(element);
-    this.observers.set(element, observer);
   }
 
   /**
    * Ensure cache doesn't exceed max size by evicting LRU entries
+   * Currently disabled to prevent premature eviction - all images are kept until dispose()
    */
   private ensureCacheCapacity(): void {
-    while (this.cache.size >= this.maxCacheSize) {
-      // Find least recently used entry
-      let lruId: string | null = null;
-      let lruTime = Infinity;
-
-      this.cache.forEach((entry, id) => {
-        // Skip entries with pending releases (they're being used)
-        if (entry.releaseTimeoutId !== undefined) return;
-        
-        if (entry.lastAccessed < lruTime) {
-          lruTime = entry.lastAccessed;
-          lruId = id;
-        }
-      });
-
-      if (lruId) {
-        this.doReleaseImage(lruId);
-      } else {
-        // All entries have pending releases, can't evict
-        break;
-      }
-    }
+    // Disable LRU eviction - we keep all images until the book is closed
+    // This prevents blob URLs from being revoked while images are still displayed
+    return;
   }
 
   /**
@@ -268,28 +240,61 @@ export class ImageResourceManager {
   }
 }
 
-// Global map to store image managers per book
-const imageManagers = new Map<string, ImageResourceManager>();
+// Access singleton storage from globalThis
+const getSingletonStorage = (): Map<string, ImageResourceManager> => {
+  return globalThis.__SQUIRREL_IMAGE_MANAGER__.instances;
+};
 
+/**
+ * Get an existing image manager for a book (singleton accessor)
+ */
 export function getImageManager(bookId: string): ImageResourceManager | undefined {
-  return imageManagers.get(bookId);
+  return getSingletonStorage().get(bookId);
 }
 
+/**
+ * Create or get existing image manager for a book (singleton factory)
+ * Ensures only one instance exists per bookId globally
+ */
 export function createImageManager(bookId: string, options?: { maxCacheSize?: number }): ImageResourceManager {
-  const existing = imageManagers.get(bookId);
+  const storage = getSingletonStorage();
+  const existing = storage.get(bookId);
+  
   if (existing) {
+    console.log(`[ImageManager] Reusing existing instance for book: ${bookId}`);
     return existing;
   }
   
   const manager = new ImageResourceManager(bookId, options);
-  imageManagers.set(bookId, manager);
+  storage.set(bookId, manager);
+  console.log(`[ImageManager] Created new singleton instance for book: ${bookId}`);
   return manager;
 }
 
+/**
+ * Dispose and remove image manager for a book
+ */
 export function disposeImageManager(bookId: string): void {
-  const manager = imageManagers.get(bookId);
+  const storage = getSingletonStorage();
+  const manager = storage.get(bookId);
+  
   if (manager) {
     manager.dispose();
-    imageManagers.delete(bookId);
+    storage.delete(bookId);
+    console.log(`[ImageManager] Disposed singleton instance for book: ${bookId}`);
   }
+}
+
+/**
+ * Get all active image manager instances
+ */
+export function getAllImageManagers(): Map<string, ImageResourceManager> {
+  return new Map(getSingletonStorage());
+}
+
+/**
+ * Get singleton namespace identifier
+ */
+export function getSingletonNamespace(): string {
+  return SINGELTON_NAMESPACE;
 }
