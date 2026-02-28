@@ -190,15 +190,39 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
     }
   };
 
-  const handleTocSelect = (chapterId: string) => {
+  const handleTocSelect = (chapterId: string, anchor?: string) => {
     const index = tocToChapterMap.get(chapterId);
     if (index !== undefined && index >= 0) {
-      goToChapter(index);
+      // Navigate to target chapter
+      setCurrentChapterIndex(index);
+
+      // If there's an anchor, scroll to it after chapter loads
+      if (anchor) {
+        setTimeout(() => {
+          const element = chapterContentRef.current?.querySelector(`[id="${anchor}"], [name="${anchor}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } else {
+            // Scroll to top if anchor not found
+            if (contentRef.current) {
+              contentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        }, 150);
+      } else {
+        // Scroll to top of content
+        if (contentRef.current) {
+          contentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     } else {
       // Fallback: try to find directly in chapters
       const fallbackIndex = chapters.findIndex(ch => ch.id === chapterId);
       if (fallbackIndex >= 0) {
-        goToChapter(fallbackIndex);
+        setCurrentChapterIndex(fallbackIndex);
+        if (contentRef.current) {
+          contentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       }
     }
   };
