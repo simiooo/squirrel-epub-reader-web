@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BookList } from '../components/BookList';
 import { BookImport } from '../components/BookImport';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { CloudStoragePanel } from '../components/CloudStoragePanel';
 
 export const HomePage: React.FC = () => {
   const { t } = useTranslation();
@@ -12,11 +13,24 @@ export const HomePage: React.FC = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  const handleSyncComplete = () => {
+    // 同步完成后刷新书籍列表
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', padding: 24 }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ 
+        marginBottom: 24, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 12,
+      }}>
         <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>{t('nav.myBookshelf')}</h2>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <CloudStoragePanel onSyncComplete={handleSyncComplete} />
           <LanguageSwitcher />
           <BookImport onImport={handleImport} />
         </div>
@@ -25,3 +39,5 @@ export const HomePage: React.FC = () => {
     </div>
   );
 };
+
+export default HomePage;
