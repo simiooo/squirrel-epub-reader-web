@@ -24,7 +24,7 @@ import {
 import { TableOfContents } from './TableOfContents';
 import { GestureIndicator } from './gesture/GestureIndicator';
 import { GestureOverlay } from './gesture/GestureOverlay';
-import { useGestureSettings } from '../contexts/useGestureHooks';
+import { useGestureStore } from '../stores/gestureStore';
 import { epubParser } from '../utils/epubParser';
 import { createImageManager, ImageResourceManager } from '../utils/imageManager';
 import { saveProgress, getProgress } from '../db';
@@ -47,7 +47,8 @@ interface BookReaderProps {
 export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
   const { t } = useTranslation();
   const { token } = useToken();
-  const { settings, updateSettings } = useGestureSettings();
+  const settings = useGestureStore((state) => state.settings);
+  const updateSettings = useGestureStore((state) => state.updateSettings);
   const [chapters, setChapters] = useState<ParsedChapter[]>([]);
   const [tableOfContents, setTableOfContents] = useState<Chapter[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);

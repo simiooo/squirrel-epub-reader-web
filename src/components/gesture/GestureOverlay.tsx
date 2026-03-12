@@ -1,25 +1,17 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { GestureController, type GestureControllerRef } from './GestureController';
 import { GestureCursor } from './GestureCursor';
-import { useGestureSettings, useGestureRuntime } from '../../contexts/useGestureHooks';
+import { useGestureStore } from '../../stores/gestureStore';
 
 export const GestureOverlay: React.FC = () => {
-  const { settings } = useGestureSettings();
-  const { runtimeState, updateGestureState } = useGestureRuntime();
+  const enabled = useGestureStore((state) => state.settings.enabled);
+  const cursorPosition = useGestureStore((state) => state.runtime.cursorPosition);
+  const gestureState = useGestureStore((state) => state.runtime.state);
   const controllerRef = useRef<GestureControllerRef>(null);
-  const prevEnabledRef = useRef(settings.enabled);
-
-  useEffect(() => {
-    if (prevEnabledRef.current && !settings.enabled) {
-      console.log('[GestureOverlay] Gesture disabled, calling cleanup');
-      controllerRef.current?.cleanup();
-    }
-    prevEnabledRef.current = settings.enabled;
-  }, [settings.enabled]);
 
   const handlePinch = useCallback(() => {
-    if (runtimeState.cursorPosition) {
-      const element = document.elementFromPoint(runtimeState.cursorPosition.x, runtimeState.cursorPosition.y);
+    if (cursorPosition) {
+      const element = document.elementFromPoint(cursorPosition.x, cursorPosition.y);
       if (element) {
         const clickableElement = element.closest('button, a, [data-gesture-clickable]');
         if (clickableElement) {
@@ -27,10 +19,10 @@ export const GestureOverlay: React.FC = () => {
         }
       }
     }
-  }, [runtimeState.cursorPosition]);
+  }, [cursorPosition]);
 
   const handleScroll = useCallback((deltaY: number) => {
-    if (runtimeState.state === 'scroll') {
+    if (gestureState === 'scroll') {
       const scrollable = document.querySelector('[data-gesture-scrollable]') as HTMLElement;
       if (scrollable) {
         scrollable.scrollTop += deltaY;
@@ -38,18 +30,17 @@ export const GestureOverlay: React.FC = () => {
         window.scrollBy(0, deltaY);
       }
     }
-  }, [runtimeState.state]);
+  }, [gestureState]);
 
   return (
     <>
-      <GestureController 
-        ref={controllerRef} 
-        enabled={settings.enabled}
-        onPinch={handlePinch} 
-        onScroll={handleScroll} 
-        updateGestureState={updateGestureState} 
+      <GestureController
+        ref={controllerRef}
+        enabled={enabled}
+        onPinch={handlePinch}
+        onScroll={handleScroll}
       />
-      <GestureCursor position={runtimeState.cursorPosition} state={runtimeState.state} />
+      <GestureCursor position={cursorPosition} state={gestureState} />
     </>
   );
 };

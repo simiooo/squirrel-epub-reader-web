@@ -1,17 +1,26 @@
-import type { GestureType, Point } from '../types/gesture';
+import type { GestureType } from '../types/gesture';
+import type { Landmark } from '@mediapipe/tasks-vision';
+
+export interface Point {
+  x: number;
+  y: number;
+  z?: number;
+}
 
 const FINGER_TIP_INDICES = [4, 8, 12, 16, 20];
 const FINGER_PIP_INDICES = [2, 6, 10, 14, 18];
 
-export const getLandmarkPosition = (landmarks: Point[], index: number): Point => {
-  return landmarks[index] || { x: 0, y: 0 };
+export const getLandmarkPosition = (landmarks: Point[] | Landmark[], index: number): Point => {
+  const landmark = landmarks[index];
+  if (!landmark) return { x: 0, y: 0 };
+  return { x: landmark.x, y: landmark.y, z: 'z' in landmark ? landmark.z : undefined };
 };
 
 export const calculateDistance = (p1: Point, p2: Point): number => {
   return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
 };
 
-export const isFingerExtended = (landmarks: Point[], fingerIndex: number): boolean => {
+export const isFingerExtended = (landmarks: Point[] | Landmark[], fingerIndex: number): boolean => {
   const tip = getLandmarkPosition(landmarks, FINGER_TIP_INDICES[fingerIndex]);
   const pip = getLandmarkPosition(landmarks, FINGER_PIP_INDICES[fingerIndex]);
   
@@ -22,7 +31,7 @@ export const isFingerExtended = (landmarks: Point[], fingerIndex: number): boole
   return tip.y < pip.y;
 };
 
-export const detectGesture = (landmarks: Point[], sensitivity: number = 1.0): GestureType => {
+export const detectGesture = (landmarks: Point[] | Landmark[], sensitivity: number = 1.0): GestureType => {
   if (!landmarks || landmarks.length < 21) {
     return 'unknown';
   }
@@ -64,8 +73,8 @@ export const detectGesture = (landmarks: Point[], sensitivity: number = 1.0): Ge
   return 'open';
 };
 
-export const getFingerTipPosition = (landmarks: Point[]): Point | null => {
-  if (!landmarks || landmarks.length < 8) {
+export const getFingerTipPosition = (landmarks: Point[] | Landmark[]): Point | null => {
+  if (!landmarks || landmarks.length < 9) {
     return null;
   }
   return getLandmarkPosition(landmarks, 8);

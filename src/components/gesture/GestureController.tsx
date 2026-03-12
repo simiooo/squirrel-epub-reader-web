@@ -1,83 +1,92 @@
-import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
-import { useGestureSettings } from '../../contexts/useGestureHooks';
+import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import type { HandLandmarkerResult, Landmark } from '@mediapipe/tasks-vision';
+import { useGestureStore } from '../../stores/gestureStore';
 import {
   detectGesture,
   getFingerTipPosition,
   mapToScreenCoordinates,
 } from '../../utils/gestureDetector';
-import type { GestureState, Point } from '../../types/gesture';
+import type { GestureState } from '../../stores/gestureStore';
 import { setCursorPosition, setCursorState } from '../../utils/cursorManager';
-import { getMediaPipeLoaderAsync } from '../../utils/mediaPipeLoader';
-
-interface HandsResults {
-  multiHandLandmarks?: Point[][];
-  image?: HTMLVideoElement | HTMLImageElement;
-}
 
 interface GestureControllerProps {
   enabled?: boolean;
   onPinch?: () => void;
   onScroll?: (deltaY: number) => void;
-  updateGestureState: (state: GestureState, position: { x: number; y: number } | null, handDetected: boolean) => void;
 }
 
 const SCROLL_MULTIPLIER = 5;
-
-let frameCount = 0;
-let lastFpsTime = performance.now();
 
 export interface GestureControllerRef {
   cleanup: () => void;
 }
 
 export const GestureController = forwardRef<GestureControllerRef, GestureControllerProps>(({
-  enabled = true,
+  enabled = false,
   onPinch,
   onScroll,
-  updateGestureState,
 }, ref) => {
-  const { settings } = useGestureSettings();
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const handsRef = useRef<unknown>(null);
-  const cameraRef = useRef<unknown>(null);
+  const handLandmarkerRef = useRef<HandLandmarker | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const lastPositionRef = useRef<{ x: number; y: number } | null>(null);
   const lastGestureRef = useRef<GestureState>('idle');
   const lastPinchTimeRef = useRef<number>(0);
   const prevPositionsRef = useRef<{ x: number; y: number }[]>([]);
-  const initPromiseRef = useRef<Promise<void> | null>(null);
+  const lastVideoTimeRef = useRef<number>(-1);
   const isInitializedRef = useRef(false);
-  const isRunningRef = useRef(false);
+  const isInitializingRef = useRef(false);
 
-  const handlePinch = useCallback(() => {
-    const now = Date.now();
-    if (now - lastPinchTimeRef.current > 300) {
-      lastPinchTimeRef.current = now;
-      onPinch?.();
-    }
-  }, [onPinch]);
+  const setGestureState = useGestureStore((state) => state.setGestureState);
+  const setInitializing = useGestureStore((state) => state.setInitializing);
+  const setError = useGestureStore((state) => state.setError);
+  const resetRuntime = useGestureStore((state) => state.resetRuntime);
+
+  const onPinchRef = useRef(onPinch);
+  const onScrollRef = useRef(onScroll);
+  onPinchRef.current = onPinch;
+  onScrollRef.current = onScroll;
 
   const cleanup = useCallback(() => {
-    isRunningRef.current = false;
-    
-    if (cameraRef.current) {
-      (cameraRef.current as { stop: () => void }).stop();
-      cameraRef.current = null;
+    console.log('[Gesture] Cleanup...');
+
+    isInitializedRef.current = false;
+    isInitializingRef.current = false;
+
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
-    if (handsRef.current) {
-      (handsRef.current as { close: () => Promise<void> }).close();
-      handsRef.current = null;
+
+    if (handLandmarkerRef.current) {
+      try {
+        handLandmarkerRef.current.close();
+      } catch {
+        // ignore
+      }
+      handLandmarkerRef.current = null;
     }
+
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
+
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
+      localVideoRef.current.pause();
     }
-    isInitializedRef.current = false;
-  }, []);
+
+    lastPositionRef.current = null;
+    prevPositionsRef.current = [];
+    lastGestureRef.current = 'idle';
+    lastVideoTimeRef.current = -1;
+
+    setCursorState('idle');
+    resetRuntime();
+  }, [resetRuntime]);
 
   useImperativeHandle(ref, () => ({
     cleanup,
@@ -85,210 +94,213 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
 
   useEffect(() => {
     if (!enabled) {
-      cleanup();
+      if (isInitializedRef.current || isInitializingRef.current) {
+        cleanup();
+      }
       return;
     }
 
-    if (initPromiseRef.current || isInitializedRef.current) {
+    if (isInitializedRef.current || isInitializingRef.current) {
       return;
     }
 
-    const initPromise = (async () => {
+    isInitializingRef.current = true;
+
+    let cancelled = false;
+
+    const initialize = async () => {
       try {
-        console.log('[Gesture] Initializing MediaPipe loader...');
-        
-        const loader = await getMediaPipeLoaderAsync();
-        
-        if (!enabled) return;
-        
-        console.log('[Gesture] MediaPipe scripts loaded');
+        console.log('[Gesture] Initializing...');
+        setInitializing(true);
+        setError(null);
 
-        const HandsClass = loader.getHandsClass();
-        
-        if (!HandsClass) {
-          console.error('[Gesture] Hands class not found');
-          setError('Failed to load MediaPipe Hands');
-          return;
+        const videoElement = localVideoRef.current;
+        if (!videoElement) {
+          throw new Error('Video element not found');
         }
 
-        const modelBaseUrl = loader.getModelBaseUrl();
-        
-        isRunningRef.current = true;
-        
-        console.log('[Gesture] Creating Hands instance...');
-        const hands = new HandsClass({
-          locateFile: (file: string) => `${modelBaseUrl}/${file}`,
-        }) as {
-          setOptions: (options: Record<string, unknown>) => void;
-          onResults: (callback: (results: HandsResults) => void) => void;
-          send: (input: { image: HTMLVideoElement | HTMLCanvasElement }) => Promise<void>;
-          close: () => Promise<void>;
-        };
+        const vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+        );
 
-        hands.setOptions({
-          maxNumHands: 1,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.7,
+        if (cancelled) return;
+
+        const handLandmarker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+          numHands: 1,
+          minHandDetectionConfidence: 0.7,
+          minHandPresenceConfidence: 0.5,
           minTrackingConfidence: 0.5,
         });
 
-        hands.onResults((results: HandsResults) => {
-          if (!isRunningRef.current) return;
-          
-          frameCount++;
-          const now = performance.now();
-          if (now - lastFpsTime >= 1000) {
-            console.log('[Gesture] FPS:', frameCount);
-            frameCount = 0;
-            lastFpsTime = now;
-          }
-
-          if (!localVideoRef.current) return;
-
-          if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            const landmarks = results.multiHandLandmarks[0];
-
-            if (isRunningRef.current && enabled) {
-              const fingerTip = getFingerTipPosition(landmarks);
-              if (fingerTip && localVideoRef.current) {
-                const position = mapToScreenCoordinates(
-                  fingerTip,
-                  localVideoRef.current.videoWidth,
-                  localVideoRef.current.videoHeight,
-                  window.innerWidth,
-                  window.innerHeight
-                );
-
-                setCursorPosition(position.x, position.y);
-
-                prevPositionsRef.current.push(position);
-                if (prevPositionsRef.current.length > 3) prevPositionsRef.current.shift();
-                lastPositionRef.current = position;
-
-                const gesture = detectGesture(landmarks, settings.sensitivity);
-
-                if (gesture === 'pinch') {
-                  lastGestureRef.current = 'pinch';
-                  setCursorState('pinch');
-                  updateGestureState('pinch', position, true);
-                  handlePinch();
-                } else if (gesture === 'fist') {
-                  if (lastGestureRef.current !== 'scroll' && lastPositionRef.current) {
-                    const prevPos = prevPositionsRef.current[prevPositionsRef.current.length - 2];
-                    if (prevPos) {
-                      const deltaY = (position.y - prevPos.y) * SCROLL_MULTIPLIER * settings.scrollSpeed;
-                      onScroll?.(deltaY);
-                    }
-                  }
-                  lastGestureRef.current = 'scroll';
-                  setCursorState('scroll');
-                  updateGestureState('scroll', position, true);
-                } else if (gesture === 'open') {
-                  lastGestureRef.current = 'tracking';
-                  setCursorState('tracking');
-                  updateGestureState('tracking', position, true);
-                }
-              }
-            }
-          } else {
-            lastPositionRef.current = null;
-            prevPositionsRef.current = [];
-            lastGestureRef.current = 'idle';
-            setCursorState('idle');
-            updateGestureState('idle', null, false);
-          }
-        });
-
-        handsRef.current = hands;
-
-        console.log('[Gesture] Creating Camera instance...');
-        
-        const CameraClass = loader.getCameraClass();
-
-        if (!CameraClass) {
-          console.warn('[Gesture] Camera class not found, falling back to manual frame processing');
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: 'user' },
-            audio: false,
-          });
-        
-          
-          streamRef.current = stream;
-          
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-            await localVideoRef.current.play();
-            
-            const processFrame = async () => {
-              if (!isRunningRef.current || !handsRef.current || !localVideoRef.current) return;
-              try {
-                await (handsRef.current as { send: (input: { image: HTMLVideoElement }) => Promise<void> }).send({ image: localVideoRef.current });
-              } catch (_e) {
-                // ignore
-              }
-              if (isRunningRef.current) {
-                requestAnimationFrame(processFrame);
-              }
-            };
-            
-            console.log('[Gesture] Ready!');
-            isInitializedRef.current = true;
-            processFrame();
-          }
+        if (cancelled) {
+          handLandmarker.close();
           return;
         }
 
-        const camera = new CameraClass(localVideoRef.current!, {
-          onFrame: async () => {
-            if (!isRunningRef.current || !handsRef.current || !localVideoRef.current) return;
-            try {
-              await (handsRef.current as { send: (input: { image: HTMLVideoElement }) => Promise<void> }).send({ image: localVideoRef.current });
-            } catch (_e) {
-              // ignore
-            }
+        handLandmarkerRef.current = handLandmarker;
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 320 },
+            height: { ideal: 240 },
+            facingMode: 'user',
           },
-          width: 320,
-          height: 240,
+          audio: false,
         });
 
-        cameraRef.current = camera;
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
 
-        console.log('[Gesture] Starting camera...');
-        await camera.start();
-        console.log('[Gesture] Ready!');
+        streamRef.current = stream;
+        videoElement.srcObject = stream;
+
+        await new Promise<void>((resolve, reject) => {
+          const onLoaded = () => {
+            videoElement.removeEventListener('loadeddata', onLoaded);
+            resolve();
+          };
+
+          videoElement.addEventListener('loadeddata', onLoaded);
+          videoElement.play().catch(reject);
+
+          setTimeout(() => {
+            videoElement.removeEventListener('loadeddata', onLoaded);
+            reject(new Error('Video load timeout'));
+          }, 10000);
+        });
+
+        if (cancelled) return;
+
+        let frameCount = 0;
+        let lastFpsTime = performance.now();
+
+        const processFrame = () => {
+          if (!isInitializedRef.current || cancelled) return;
+
+          if (videoElement && handLandmarkerRef.current && videoElement.readyState >= 2) {
+            const currentTime = videoElement.currentTime;
+            if (currentTime !== lastVideoTimeRef.current) {
+              lastVideoTimeRef.current = currentTime;
+
+              try {
+                const results: HandLandmarkerResult = handLandmarkerRef.current!.detectForVideo(videoElement, performance.now());
+
+                if (results.landmarks && results.landmarks.length > 0) {
+                  const landmarks = results.landmarks[0] as Landmark[];
+
+                  const fingerTip = getFingerTipPosition(landmarks);
+                  if (fingerTip && videoElement) {
+                    const position = mapToScreenCoordinates(
+                      fingerTip,
+                      videoElement.videoWidth,
+                      videoElement.videoHeight,
+                      window.innerWidth,
+                      window.innerHeight
+                    );
+
+                    setCursorPosition(position.x, position.y);
+
+                    prevPositionsRef.current.push(position);
+                    if (prevPositionsRef.current.length > 3) {
+                      prevPositionsRef.current.shift();
+                    }
+                    lastPositionRef.current = position;
+
+                    const { sensitivity, scrollSpeed } = useGestureStore.getState().settings;
+                    const gesture = detectGesture(landmarks, sensitivity);
+
+                    if (gesture === 'pinch') {
+                      lastGestureRef.current = 'pinch';
+                      setCursorState('pinch');
+                      setGestureState('pinch', position, true);
+                      const now = Date.now();
+                      if (now - lastPinchTimeRef.current > 300) {
+                        lastPinchTimeRef.current = now;
+                        onPinchRef.current?.();
+                      }
+                    } else if (gesture === 'fist') {
+                      if (lastGestureRef.current !== 'scroll' && prevPositionsRef.current.length >= 2) {
+                        const prevPos = prevPositionsRef.current[prevPositionsRef.current.length - 2];
+                        const deltaY = (position.y - prevPos.y) * SCROLL_MULTIPLIER * scrollSpeed;
+                        onScrollRef.current?.(deltaY);
+                      }
+                      lastGestureRef.current = 'scroll';
+                      setCursorState('scroll');
+                      setGestureState('scroll', position, true);
+                    } else if (gesture === 'open') {
+                      lastGestureRef.current = 'tracking';
+                      setCursorState('tracking');
+                      setGestureState('tracking', position, true);
+                    }
+                  }
+                } else {
+                  lastPositionRef.current = null;
+                  prevPositionsRef.current = [];
+                  lastGestureRef.current = 'idle';
+                  setCursorState('idle');
+                  setGestureState('idle', null, false);
+                }
+
+                frameCount++;
+                const now = performance.now();
+                if (now - lastFpsTime >= 1000) {
+                  console.log('[Gesture] FPS:', frameCount);
+                  frameCount = 0;
+                  lastFpsTime = now;
+                }
+              } catch {
+                // Ignore processing errors
+              }
+            }
+          }
+
+          if (isInitializedRef.current && !cancelled) {
+            animationFrameRef.current = requestAnimationFrame(processFrame);
+          }
+        };
+
         isInitializedRef.current = true;
-      } catch (err) {
-        console.error('[Gesture] Init error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to initialize');
-      } finally {
-        initPromiseRef.current = null;
-      }
-    })();
+        isInitializingRef.current = false;
+        processFrame();
 
-    initPromiseRef.current = initPromise;
+        console.log('[Gesture] Ready!');
+        setInitializing(false);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[Gesture] Init error:', err);
+        isInitializingRef.current = false;
+        setError(err instanceof Error ? err.message : 'Failed to initialize');
+        setInitializing(false);
+        cleanup();
+      }
+    };
+
+    initialize();
 
     return () => {
+      cancelled = true;
       cleanup();
     };
-  }, [enabled, settings.sensitivity, settings.scrollSpeed, handlePinch, onScroll, cleanup, updateGestureState]);
+  }, [enabled, cleanup, setGestureState, setInitializing, setError]);
 
   if (!enabled) return null;
 
   return (
-    <>
-      {error && (
-        <div style={{
-          position: 'absolute', right: 16, bottom: 16,
-          padding: 8, fontSize: 11, color: '#c00', zIndex: 1001,
-        }}>
-          {error}
-        </div>
-      )}
-      <video
-        ref={localVideoRef}
-        style={{ display: 'none' }}
-        playsInline muted autoPlay
-      />
-    </>
+    <video
+      ref={localVideoRef}
+      style={{ display: 'none' }}
+      playsInline
+      muted
+      autoPlay
+    />
   );
 });
+
+GestureController.displayName = 'GestureController';

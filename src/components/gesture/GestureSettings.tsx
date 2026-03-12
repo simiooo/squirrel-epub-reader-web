@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Switch, Slider, Typography, Space, Card } from 'antd';
 import { MobileOutlined } from '@ant-design/icons';
-import { useGestureSettings } from '../../contexts/useGestureHooks';
+import { useGestureStore } from '../../stores/gestureStore';
 
 const { Text } = Typography;
 
@@ -13,7 +13,11 @@ interface GestureSettingsProps {
 
 export const GestureSettings: React.FC<GestureSettingsProps> = ({ open, onClose }) => {
   const { t } = useTranslation();
-  const { settings, updateSettings } = useGestureSettings();
+  
+  const enabled = useGestureStore((state) => state.settings.enabled);
+  const sensitivity = useGestureStore((state) => state.settings.sensitivity);
+  const scrollSpeed = useGestureStore((state) => state.settings.scrollSpeed);
+  const updateSettings = useGestureStore((state) => state.updateSettings);
 
   const scrollSpeedMarks = {
     1: '1',
@@ -45,7 +49,7 @@ export const GestureSettings: React.FC<GestureSettingsProps> = ({ open, onClose 
           >
             <Text>{t('gesture.enable')}</Text>
             <Switch
-              checked={settings.enabled}
+              checked={enabled}
               onChange={(checked) => updateSettings({ enabled: checked })}
             />
           </div>
@@ -58,9 +62,9 @@ export const GestureSettings: React.FC<GestureSettingsProps> = ({ open, onClose 
               min={0.5}
               max={1.5}
               step={0.1}
-              value={settings.sensitivity}
+              value={sensitivity}
               onChange={(value) => updateSettings({ sensitivity: value })}
-              disabled={!settings.enabled}
+              disabled={!enabled}
             />
             <div
               style={{
@@ -71,7 +75,7 @@ export const GestureSettings: React.FC<GestureSettingsProps> = ({ open, onClose 
               }}
             >
               <span>0.5</span>
-              <span>{settings.sensitivity.toFixed(1)}x</span>
+              <span>{sensitivity.toFixed(1)}x</span>
               <span>1.5</span>
             </div>
           </div>
@@ -84,9 +88,9 @@ export const GestureSettings: React.FC<GestureSettingsProps> = ({ open, onClose 
               min={1}
               max={10}
               marks={scrollSpeedMarks}
-              value={settings.scrollSpeed}
+              value={scrollSpeed}
               onChange={(value) => updateSettings({ scrollSpeed: value })}
-              disabled={!settings.enabled}
+              disabled={!enabled}
             />
           </div>
 
