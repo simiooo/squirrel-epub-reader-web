@@ -31,8 +31,11 @@ const cursorConfigs = {
   },
 } as const;
 
-const SMOOTHING = 0.15;
-const VELOCITY_DECAY = 0.85;
+const SMOOTHING = 0.12;
+const VELOCITY_DECAY = 0.7;
+const LOW_PASS_ALPHA = 0.25;
+const DEAD_ZONE = 2;
+const JITTER_THRESHOLD = 0.5;
 
 export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state }) => {
   const rafRef = useRef<number>(0);
@@ -41,14 +44,51 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state })
   const targetRef = useRef<{ x: number; y: number } | null>(null);
   const elRef = useRef<HTMLDivElement | null>(null);
   const isRunningRef = useRef(false);
+  const filteredTargetRef = useRef({ x: 0, y: 0 });
+  const lastInputRef = useRef({ x: 0, y: 0 });
+  const lockedPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const prevStateRef = useRef<GestureState>('idle');
 
   const updateTarget = useCallback(() => {
     if (position) {
-      const config = cursorConfigs[state];
-      targetRef.current = {
-        x: position.x - config.size / 2,
-        y: position.y - config.size / 2,
-      };
+      const isTransitioningToAction = 
+        prevStateRef.current === 'tracking' && (state === 'pinch' || state === 'scroll');
+      const isReturningToTracking = 
+        prevStateRef.current !== 'tracking' && state === 'tracking';
+
+      if (isTransitioningToAction) {
+        lockedPositionRef.current = { ...filteredTargetRef.current };
+      } else if (isReturningToTracking) {
+        lockedPositionRef.current = null;
+      }
+
+      prevStateRef.current = state;
+
+      let rawX: number, rawY: number;
+      if (lockedPositionRef.current && (state === 'pinch' || state === 'scroll')) {
+        rawX = lockedPositionRef.current.x;
+        rawY = lockedPositionRef.current.y;
+      } else {
+        const config = cursorConfigs[state];
+        rawX = position.x - config.size / 2;
+        rawY = position.y - config.size / 2;
+      }
+
+      const dx = rawX - lastInputRef.current.x;
+      const dy = rawY - lastInputRef.current.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < JITTER_THRESHOLD) {
+        targetRef.current = { ...filteredTargetRef.current };
+      } else {
+        filteredTargetRef.current = {
+          x: filteredTargetRef.current.x + (rawX - filteredTargetRef.current.x) * LOW_PASS_ALPHA,
+          y: filteredTargetRef.current.y + (rawY - filteredTargetRef.current.y) * LOW_PASS_ALPHA,
+        };
+        targetRef.current = { ...filteredTargetRef.current };
+      }
+
+      lastInputRef.current = { x: rawX, y: rawY };
     }
   }, [position, state]);
 
@@ -59,12 +99,15 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state })
     if (el && target) {
       const dx = target.x - posRef.current.x;
       const dy = target.y - posRef.current.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
 
-      velRef.current.x = velRef.current.x * VELOCITY_DECAY + dx * SMOOTHING;
-      velRef.current.y = velRef.current.y * VELOCITY_DECAY + dy * SMOOTHING;
+      if (distance > DEAD_ZONE) {
+        velRef.current.x = velRef.current.x * VELOCITY_DECAY + dx * SMOOTHING;
+        velRef.current.y = velRef.current.y * VELOCITY_DECAY + dy * SMOOTHING;
 
-      posRef.current.x += velRef.current.x;
-      posRef.current.y += velRef.current.y;
+        posRef.current.x += velRef.current.x;
+        posRef.current.y += velRef.current.y;
+      }
 
       el.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0)`;
     }
