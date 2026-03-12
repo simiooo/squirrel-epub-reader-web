@@ -2,14 +2,18 @@
 
 This document provides guidelines for AI agents working on the Squirrel EPUB Reader codebase.
 
-## Build & Development Commands
+## Package Manager
+
+**Always use pnpm** for package management. Do not use npm or yarn.
 
 ```bash
-npm run dev          # Development server
-npm run build        # Build for production
-npm run lint         # Lint code
-npm run preview      # Preview production build
-npm run generate-icons # Generate PWA icons
+pnpm install         # Install dependencies
+pnpm add <package>   # Add a dependency
+pnpm dev             # Development server
+pnpm build           # Build for production
+pnpm lint            # Lint code
+pnpm preview         # Preview production build
+pnpm generate-icons  # Generate PWA icons
 ```
 
 ## TypeScript Configuration
