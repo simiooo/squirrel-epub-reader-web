@@ -38,11 +38,13 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
   const lastVideoTimeRef = useRef<number>(-1);
   const isInitializedRef = useRef(false);
   const isInitializingRef = useRef(false);
+  const savedCursorPositionRef = useRef<{ x: number; y: number } | null>(null);
 
   const setGestureState = useGestureStore((state) => state.setGestureState);
   const setInitializing = useGestureStore((state) => state.setInitializing);
   const setError = useGestureStore((state) => state.setError);
   const resetRuntime = useGestureStore((state) => state.resetRuntime);
+  const updateRuntimeState = useGestureStore((state) => state.updateRuntimeState);
 
   const onPinchRef = useRef(onPinch);
   const onScrollRef = useRef(onScroll);
@@ -83,6 +85,7 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
     prevPositionsRef.current = [];
     lastGestureRef.current = 'idle';
     lastVideoTimeRef.current = -1;
+    savedCursorPositionRef.current = null;
 
     setCursorState('idle');
     resetRuntime();
@@ -197,13 +200,17 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
 
                   const fingerTip = getFingerTipPosition(landmarks);
                   if (fingerTip && videoElement) {
-                    const position = mapToScreenCoordinates(
+                    let position = mapToScreenCoordinates(
                       fingerTip,
                       videoElement.videoWidth,
                       videoElement.videoHeight,
                       window.innerWidth,
                       window.innerHeight
                     );
+
+                    if (lastGestureRef.current === 'idle' && savedCursorPositionRef.current) {
+                      position = savedCursorPositionRef.current;
+                    }
 
                     setCursorPosition(position.x, position.y);
 
@@ -212,6 +219,7 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
                       prevPositionsRef.current.shift();
                     }
                     lastPositionRef.current = position;
+                    savedCursorPositionRef.current = position;
 
                     const { sensitivity, scrollSpeed } = useGestureStore.getState().settings;
                     const gesture = detectGesture(landmarks, sensitivity);
@@ -220,32 +228,42 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
                       lastGestureRef.current = 'pinch';
                       setCursorState('pinch');
                       setGestureState('pinch', position, true);
+                      updateRuntimeState({ lastCursorPosition: position });
                       const now = Date.now();
                       if (now - lastPinchTimeRef.current > 300) {
                         lastPinchTimeRef.current = now;
+                        console.log('[Gesture] Pinch triggered at', position);
                         onPinchRef.current?.();
                       }
                     } else if (gesture === 'fist') {
-                      if (lastGestureRef.current !== 'scroll' && prevPositionsRef.current.length >= 2) {
+                      if (prevPositionsRef.current.length >= 2) {
                         const prevPos = prevPositionsRef.current[prevPositionsRef.current.length - 2];
                         const deltaY = (position.y - prevPos.y) * SCROLL_MULTIPLIER * scrollSpeed;
-                        onScrollRef.current?.(deltaY);
+                        if (Math.abs(deltaY) > 1) {
+                          console.log('[Gesture] Scroll deltaY:', deltaY);
+                          onScrollRef.current?.(deltaY);
+                        }
                       }
                       lastGestureRef.current = 'scroll';
                       setCursorState('scroll');
                       setGestureState('scroll', position, true);
+                      updateRuntimeState({ lastCursorPosition: position });
                     } else if (gesture === 'open') {
                       lastGestureRef.current = 'tracking';
                       setCursorState('tracking');
                       setGestureState('tracking', position, true);
+                      updateRuntimeState({ lastCursorPosition: position });
                     }
                   }
                 } else {
-                  lastPositionRef.current = null;
+                  if (lastPositionRef.current) {
+                    savedCursorPositionRef.current = lastPositionRef.current;
+                    updateRuntimeState({ lastCursorPosition: lastPositionRef.current });
+                  }
                   prevPositionsRef.current = [];
                   lastGestureRef.current = 'idle';
                   setCursorState('idle');
-                  setGestureState('idle', null, false);
+                  setGestureState('idle', savedCursorPositionRef.current, false);
                 }
 
                 frameCount++;
@@ -288,7 +306,7 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
       cancelled = true;
       cleanup();
     };
-  }, [enabled, cleanup, setGestureState, setInitializing, setError]);
+  }, [enabled, cleanup, setGestureState, setInitializing, setError, updateRuntimeState]);
 
   if (!enabled) return null;
 

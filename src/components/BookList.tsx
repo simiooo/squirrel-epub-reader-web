@@ -116,6 +116,8 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
             >
               <Card
                 hoverable
+                data-gesture-clickable
+                onClick={() => navigate(`/read/${book.id}`)}
                 cover={
                   book.cover ? (
                     <div style={{ 
@@ -158,7 +160,10 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                     key="read"
                     type="text"
                     icon={<EyeOutlined />}
-                    onClick={() => navigate(`/read/${book.id}`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/read/${book.id}`);
+                    }}
                   >
                     {t('book.read')}
                   </Button>,
@@ -166,11 +171,14 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                     key="delete"
                     title={t('book.deleteConfirm')}
                     description={t('book.deleteConfirmDesc')}
-                    onConfirm={() => handleDelete(book.id)}
+                    onConfirm={(e) => {
+                      e?.stopPropagation();
+                      handleDelete(book.id);
+                    }}
                     okText={t('common.delete')}
                     cancelText={t('common.cancel')}
                   >
-                    <Button type="text" danger icon={<DeleteOutlined />}>
+                    <Button type="text" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>
                       {t('common.delete')}
                     </Button>
                   </Popconfirm>,

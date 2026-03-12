@@ -5,6 +5,7 @@ import { BookImport } from '../components/BookImport';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { CloudStoragePanel } from '../components/CloudStoragePanel';
 import { SettingsButton } from '../components/SettingsButton';
+import { GestureOverlay } from '../components/gesture/GestureOverlay';
 
 export const HomePage: React.FC = () => {
   const { t } = useTranslation();
@@ -15,12 +16,15 @@ export const HomePage: React.FC = () => {
   };
 
   const handleSyncComplete = () => {
-    // 同步完成后刷新书籍列表
     setRefreshTrigger(prev => prev + 1);
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', padding: 24 }}>
+    <div 
+      data-gesture-scrollable
+      style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', padding: 24, overflow: 'auto' }}
+    >
+      <GestureOverlay />
       <div style={{ 
         marginBottom: 24, 
         display: 'flex', 

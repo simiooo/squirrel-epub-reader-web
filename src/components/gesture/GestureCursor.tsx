@@ -92,6 +92,8 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state })
     }
   }, [position, state]);
 
+  const animateRef = useRef<() => void>(() => {});
+  
   const animate = useCallback(() => {
     const el = elRef.current;
     const target = targetRef.current;
@@ -113,9 +115,13 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state })
     }
 
     if (isRunningRef.current) {
-      rafRef.current = requestAnimationFrame(animate);
+      rafRef.current = requestAnimationFrame(animateRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    animateRef.current = animate;
+  }, [animate]);
 
   const setElRef = useCallback(
     (el: HTMLDivElement | null) => {
@@ -133,10 +139,10 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state })
           startHoverCheck();
         }
 
-        rafRef.current = requestAnimationFrame(animate);
+        rafRef.current = requestAnimationFrame(animateRef.current);
       }
     },
-    [animate]
+    []
   );
 
   useEffect(() => {

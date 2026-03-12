@@ -417,6 +417,7 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
         {tocVisible && (
           <Sider
             width={300}
+            data-gesture-scrollable
             style={{
               backgroundColor: token.colorBgContainer,
               borderRight: `1px solid ${token.colorBorderSecondary}`,
@@ -439,6 +440,7 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
 
         {/* Content Area */}
         <Content
+          data-gesture-scrollable
           style={{
             overflow: 'auto',
             backgroundColor: token.colorBgContainer,

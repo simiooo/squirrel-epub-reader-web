@@ -12,6 +12,7 @@ export interface GestureSettings {
 export interface GestureRuntimeState {
   state: GestureState;
   cursorPosition: { x: number; y: number } | null;
+  lastCursorPosition: { x: number; y: number } | null;
   isHandDetected: boolean;
   isInitializing: boolean;
   error: string | null;
@@ -41,6 +42,7 @@ const defaultSettings: GestureSettings = {
 const defaultRuntime: GestureRuntimeState = {
   state: 'idle',
   cursorPosition: null,
+  lastCursorPosition: null,
   isHandDetected: false,
   isInitializing: false,
   error: null,
