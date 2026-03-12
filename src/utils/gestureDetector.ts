@@ -1,0 +1,88 @@
+import type { GestureType, Point } from '../types/gesture';
+
+const FINGER_TIP_INDICES = [4, 8, 12, 16, 20];
+const FINGER_PIP_INDICES = [2, 6, 10, 14, 18];
+
+export const getLandmarkPosition = (landmarks: Point[], index: number): Point => {
+  return landmarks[index] || { x: 0, y: 0 };
+};
+
+export const calculateDistance = (p1: Point, p2: Point): number => {
+  return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+};
+
+export const isFingerExtended = (landmarks: Point[], fingerIndex: number): boolean => {
+  const tip = getLandmarkPosition(landmarks, FINGER_TIP_INDICES[fingerIndex]);
+  const pip = getLandmarkPosition(landmarks, FINGER_PIP_INDICES[fingerIndex]);
+  
+  if (fingerIndex === 0) {
+    return tip.x !== pip.x || Math.abs(tip.y - pip.y) > 0.1;
+  }
+  
+  return tip.y < pip.y;
+};
+
+export const detectGesture = (landmarks: Point[], sensitivity: number = 1.0): GestureType => {
+  if (!landmarks || landmarks.length < 21) {
+    return 'unknown';
+  }
+
+  const thumbTip = getLandmarkPosition(landmarks, 4);
+  const indexTip = getLandmarkPosition(landmarks, 8);
+
+  const thumbIndexDistance = calculateDistance(thumbTip, indexTip);
+  const pinchThreshold = 0.05 / sensitivity;
+
+  if (thumbIndexDistance < pinchThreshold) {
+    return 'pinch';
+  }
+
+  const allFingersExtended = [
+    isFingerExtended(landmarks, 1),
+    isFingerExtended(landmarks, 2),
+    isFingerExtended(landmarks, 3),
+    isFingerExtended(landmarks, 4),
+  ].every(Boolean);
+
+  const thumbExtended = isFingerExtended(landmarks, 0);
+  const fingersExtendedCount = [
+    thumbExtended,
+    isFingerExtended(landmarks, 1),
+    isFingerExtended(landmarks, 2),
+    isFingerExtended(landmarks, 3),
+    isFingerExtended(landmarks, 4),
+  ].filter(Boolean).length;
+
+  if (fingersExtendedCount >= 4 && allFingersExtended) {
+    return 'open';
+  }
+
+  if (fingersExtendedCount <= 1) {
+    return 'fist';
+  }
+
+  return 'open';
+};
+
+export const getFingerTipPosition = (landmarks: Point[]): Point | null => {
+  if (!landmarks || landmarks.length < 8) {
+    return null;
+  }
+  return getLandmarkPosition(landmarks, 8);
+};
+
+export const mapToScreenCoordinates = (
+  landmarkPoint: Point,
+  _videoWidth: number,
+  _videoHeight: number,
+  screenWidth: number,
+  screenHeight: number
+): { x: number; y: number } => {
+  const x = (1 - landmarkPoint.x) * screenWidth;
+  const y = landmarkPoint.y * screenHeight;
+
+  return {
+    x: Math.max(0, Math.min(screenWidth, x)),
+    y: Math.max(0, Math.min(screenHeight, y)),
+  };
+};

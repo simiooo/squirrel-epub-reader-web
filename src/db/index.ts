@@ -5,13 +5,15 @@ export class EpubDatabase extends Dexie {
   books!: Table<Book, string>;
   progress!: Table<ReadingProgress, string>;
   bookmarks!: Table<Bookmark, string>;
+  modelCache!: Table<{ key: string; data: Blob; mimeType: string; cachedAt: number }, string>;
 
   constructor() {
     super('EpubReaderDB');
-    this.version(1).stores({
+    this.version(2).stores({
       books: 'id, &metadata.identifier, addedAt',
       progress: 'bookId',
       bookmarks: 'id, bookId, chapterId, createdAt',
+      modelCache: 'key',
     });
   }
 }
@@ -75,4 +77,45 @@ export async function deleteBookmarkByPosition(
   await db.bookmarks
     .where({ bookId, chapterId, position })
     .delete();
+}
+
+const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000;
+
+export async function getCachedModel(key: string): Promise<Blob | null> {
+  const cached = await db.modelCache.get(key);
+  if (!cached) return null;
+  
+  if (Date.now() - cached.cachedAt > CACHE_EXPIRY) {
+    await db.modelCache.delete(key);
+    return null;
+  }
+  
+  return cached.data;
+}
+
+export async function cacheModel(key: string, data: Blob, mimeType: string): Promise<void> {
+  await db.modelCache.put({
+    key,
+    data,
+    mimeType,
+    cachedAt: Date.now(),
+  });
+}
+
+export async function loadCachedModel(key: string, url: string): Promise<string> {
+  const cached = await getCachedModel(key);
+  
+  if (cached) {
+    return URL.createObjectURL(cached);
+  }
+  
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${url}`);
+  }
+  
+  const blob = await response.blob();
+  await cacheModel(key, blob, blob.type);
+  
+  return URL.createObjectURL(blob);
 }
