@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
 import { routes } from './routes';
+import { GestureProvider } from './contexts/GestureContext';
 import './App.css';
 import './i18n';
 
@@ -29,7 +30,9 @@ function App() {
         },
       }}
     >
-      <RouterProvider router={router} />
+      <GestureProvider>
+        <RouterProvider router={router} />
+      </GestureProvider>
     </ConfigProvider>
   );
 }

@@ -22,6 +22,9 @@ import {
   BookOutlined,
 } from '@ant-design/icons';
 import { TableOfContents } from './TableOfContents';
+import { GestureIndicator } from './gesture/GestureIndicator';
+import { GestureOverlay } from './gesture/GestureOverlay';
+import { useGestureSettings } from '../contexts/useGestureHooks';
 import { epubParser } from '../utils/epubParser';
 import { createImageManager, ImageResourceManager } from '../utils/imageManager';
 import { saveProgress, getProgress } from '../db';
@@ -44,6 +47,7 @@ interface BookReaderProps {
 export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
   const { t } = useTranslation();
   const { token } = useToken();
+  const { settings, updateSettings } = useGestureSettings();
   const [chapters, setChapters] = useState<ParsedChapter[]>([]);
   const [tableOfContents, setTableOfContents] = useState<Chapter[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -349,6 +353,7 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
 
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden' }}>
+      <GestureOverlay />
       {/* Header */}
       <Affix>
         <div
@@ -386,6 +391,9 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
           </div>
 
           <Space>
+            <GestureIndicator onClick={() => {
+              updateSettings({ enabled: !settings.enabled });
+            }} />
             {chapters.length > 0 && (
               <>
                 <Text type="secondary" style={{ fontSize: 12 }}>

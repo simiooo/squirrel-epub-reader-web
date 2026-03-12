@@ -51,5 +51,22 @@
     "readProgress": "{{progress}}% 已读",
     "noContent": "暂无内容",
     "chapterNotFound": "未找到目标章节"
+  },
+  "gesture": {
+    "title": "手势控制",
+    "clickToToggle": "点击切换开关",
+    "enable": "启用手势控制",
+    "sensitivity": "灵敏度",
+    "scrollSpeed": "滚动速度",
+    "scrollSpeedMedium": "中等",
+    "instructions": "手势说明",
+    "openPalm": "张开手掌 → 移动光标",
+    "pinch": "拇指食指捏合 → 点击",
+    "fist": "握拳上下移动 → 滚动页面",
+    "on": "开启",
+    "off": "关闭"
+  },
+  "settings": {
+    "title": "设置"
   }
 }

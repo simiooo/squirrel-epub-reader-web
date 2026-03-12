@@ -4,6 +4,7 @@ import { BookList } from '../components/BookList';
 import { BookImport } from '../components/BookImport';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { CloudStoragePanel } from '../components/CloudStoragePanel';
+import { SettingsButton } from '../components/SettingsButton';
 
 export const HomePage: React.FC = () => {
   const { t } = useTranslation();
@@ -32,6 +33,7 @@ export const HomePage: React.FC = () => {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <CloudStoragePanel onSyncComplete={handleSyncComplete} />
           <LanguageSwitcher />
+          <SettingsButton />
           <BookImport onImport={handleImport} />
         </div>
       </div>

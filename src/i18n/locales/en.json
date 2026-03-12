@@ -51,5 +51,22 @@
     "readProgress": "{{progress}}% Read",
     "noContent": "No Content",
     "chapterNotFound": "Target chapter not found"
+  },
+  "gesture": {
+    "title": "Gesture Control",
+    "clickToToggle": "Click to toggle",
+    "enable": "Enable Gesture Control",
+    "sensitivity": "Sensitivity",
+    "scrollSpeed": "Scroll Speed",
+    "scrollSpeedMedium": "Medium",
+    "instructions": "Gesture Instructions",
+    "openPalm": "Open Palm → Move Cursor",
+    "pinch": "Pinch Thumb & Index → Click",
+    "fist": "Fist + Move Up/Down → Scroll",
+    "on": "On",
+    "off": "Off"
+  },
+  "settings": {
+    "title": "Settings"
   }
 }
