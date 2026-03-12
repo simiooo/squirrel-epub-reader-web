@@ -31,9 +31,9 @@ const cursorConfigs = {
   },
 } as const;
 
-const SMOOTHING = 0.12;
-const VELOCITY_DECAY = 0.7;
-const LOW_PASS_ALPHA = 0.25;
+const SMOOTHING = 0.18;
+const VELOCITY_DECAY = 0.65;
+const LOW_PASS_ALPHA = 0.35;
 const DEAD_ZONE = 2;
 const JITTER_THRESHOLD = 0.5;
 

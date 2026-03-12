@@ -9,6 +9,8 @@ export interface Point {
 
 const FINGER_TIP_INDICES = [4, 8, 12, 16, 20];
 const FINGER_PIP_INDICES = [2, 6, 10, 14, 18];
+const MOVEMENT_SCALE_X = 1.8;
+const MOVEMENT_SCALE_Y = 1.8;
 
 export const getLandmarkPosition = (landmarks: Point[] | Landmark[], index: number): Point => {
   const landmark = landmarks[index];
@@ -87,11 +89,17 @@ export const mapToScreenCoordinates = (
   screenWidth: number,
   screenHeight: number
 ): { x: number; y: number } => {
-  const x = (1 - landmarkPoint.x) * screenWidth;
-  const y = landmarkPoint.y * screenHeight;
+  const rawX = (1 - landmarkPoint.x) * screenWidth;
+  const rawY = landmarkPoint.y * screenHeight;
+  
+  const centerX = screenWidth / 2;
+  const centerY = screenHeight / 2;
+  
+  const scaledX = centerX + (rawX - centerX) * MOVEMENT_SCALE_X;
+  const scaledY = centerY + (rawY - centerY) * MOVEMENT_SCALE_Y;
 
   return {
-    x: Math.max(0, Math.min(screenWidth, x)),
-    y: Math.max(0, Math.min(screenHeight, y)),
+    x: Math.max(0, Math.min(screenWidth, scaledX)),
+    y: Math.max(0, Math.min(screenHeight, scaledY)),
   };
 };

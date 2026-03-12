@@ -16,7 +16,11 @@ interface GestureControllerProps {
   onScroll?: (deltaY: number) => void;
 }
 
-const SCROLL_MULTIPLIER = 5;
+const SCROLL_MULTIPLIER = 1.5;
+const SCROLL_THROTTLE_MS = 16;
+const MAX_SCROLL_DELTA = 50;
+const MIN_SCROLL_DELTA = 0.5;
+const SCROLL_SMOOTHING = 0.3;
 
 export interface GestureControllerRef {
   cleanup: () => void;
@@ -39,6 +43,8 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
   const isInitializedRef = useRef(false);
   const isInitializingRef = useRef(false);
   const savedCursorPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const lastScrollTimeRef = useRef<number>(0);
+  const scrollVelocityRef = useRef<number>(0);
 
   const setGestureState = useGestureStore((state) => state.setGestureState);
   const setInitializing = useGestureStore((state) => state.setInitializing);
@@ -237,11 +243,27 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
                       }
                     } else if (gesture === 'fist') {
                       if (prevPositionsRef.current.length >= 2) {
-                        const prevPos = prevPositionsRef.current[prevPositionsRef.current.length - 2];
-                        const deltaY = (position.y - prevPos.y) * SCROLL_MULTIPLIER * scrollSpeed;
-                        if (Math.abs(deltaY) > 1) {
-                          console.log('[Gesture] Scroll deltaY:', deltaY);
-                          onScrollRef.current?.(deltaY);
+                        const now = performance.now();
+                        const timeSinceLastScroll = now - lastScrollTimeRef.current;
+                        
+                        if (timeSinceLastScroll >= SCROLL_THROTTLE_MS) {
+                          const prevPos = prevPositionsRef.current[prevPositionsRef.current.length - 2];
+                          let rawDelta = (position.y - prevPos.y) * SCROLL_MULTIPLIER * scrollSpeed;
+                          
+                          rawDelta = Math.max(-MAX_SCROLL_DELTA, Math.min(MAX_SCROLL_DELTA, rawDelta));
+                          
+                          scrollVelocityRef.current = scrollVelocityRef.current * (1 - SCROLL_SMOOTHING) + rawDelta * SCROLL_SMOOTHING;
+                          
+                          const deltaY = Math.abs(scrollVelocityRef.current) >= MIN_SCROLL_DELTA 
+                            ? scrollVelocityRef.current 
+                            : 0;
+                          
+                          if (deltaY !== 0) {
+                            console.log('[Gesture] Scroll deltaY:', deltaY.toFixed(2));
+                            onScrollRef.current?.(deltaY);
+                          }
+                          
+                          lastScrollTimeRef.current = now;
                         }
                       }
                       lastGestureRef.current = 'scroll';
@@ -249,6 +271,7 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
                       setGestureState('scroll', position, true);
                       updateRuntimeState({ lastCursorPosition: position });
                     } else if (gesture === 'open') {
+                      scrollVelocityRef.current = 0;
                       lastGestureRef.current = 'tracking';
                       setCursorState('tracking');
                       setGestureState('tracking', position, true);
