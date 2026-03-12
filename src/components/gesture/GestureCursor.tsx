@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import type { GestureState } from '../../types/gesture';
+import type { GestureState } from '../../stores/gestureStore';
 import { setCursorElement, startHoverCheck, stopHoverCheck } from '../../utils/cursorManager';
 
 interface GestureCursorProps {
@@ -29,26 +29,89 @@ const cursorConfigs = {
     size: 24,
     opacity: 0.7,
   },
-};
+} as const;
 
-export const GestureCursor: React.FC<GestureCursorProps> = ({ state }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+const SMOOTHING = 0.15;
+const VELOCITY_DECAY = 0.85;
 
-  useEffect(() => {
-    if (state !== 'idle') {
-      setCursorElement(containerRef.current);
-      if (containerRef.current) {
-        startHoverCheck();
-      }
+export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state }) => {
+  const rafRef = useRef<number>(0);
+  const posRef = useRef({ x: 0, y: 0 });
+  const velRef = useRef({ x: 0, y: 0 });
+  const targetRef = useRef<{ x: number; y: number } | null>(null);
+  const elRef = useRef<HTMLDivElement | null>(null);
+  const isRunningRef = useRef(false);
+
+  const updateTarget = useCallback(() => {
+    if (position) {
+      const config = cursorConfigs[state];
+      targetRef.current = {
+        x: position.x - config.size / 2,
+        y: position.y - config.size / 2,
+      };
+    }
+  }, [position, state]);
+
+  const animate = useCallback(() => {
+    const el = elRef.current;
+    const target = targetRef.current;
+
+    if (el && target) {
+      const dx = target.x - posRef.current.x;
+      const dy = target.y - posRef.current.y;
+
+      velRef.current.x = velRef.current.x * VELOCITY_DECAY + dx * SMOOTHING;
+      velRef.current.y = velRef.current.y * VELOCITY_DECAY + dy * SMOOTHING;
+
+      posRef.current.x += velRef.current.x;
+      posRef.current.y += velRef.current.y;
+
+      el.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0)`;
     }
 
+    if (isRunningRef.current) {
+      rafRef.current = requestAnimationFrame(animate);
+    }
+  }, []);
+
+  const setElRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      elRef.current = el;
+      setCursorElement(el);
+
+      if (el && !isRunningRef.current) {
+        isRunningRef.current = true;
+
+        if (targetRef.current) {
+          posRef.current = { ...targetRef.current };
+        }
+
+        if (el) {
+          startHoverCheck();
+        }
+
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    },
+    [animate]
+  );
+
+  useEffect(() => {
+    updateTarget();
+  }, [updateTarget]);
+
+  useEffect(() => {
     return () => {
+      isRunningRef.current = false;
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
       setCursorElement(null);
       stopHoverCheck();
     };
-  }, [state]);
+  }, []);
 
-  if (state === 'idle') {
+  if (state === 'idle' || !position) {
     return null;
   }
 
@@ -56,7 +119,7 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ state }) => {
 
   return (
     <motion.div
-      ref={containerRef}
+      ref={setElRef}
       className="gesture-cursor"
       data-state={state}
       initial={{ scale: 0, opacity: 0 }}
@@ -82,9 +145,9 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ state }) => {
         borderRadius: '50%',
         backgroundColor: config.primaryColor,
         boxShadow: `0 2px 8px ${config.primaryColor}40`,
+        willChange: 'transform',
       }}
     >
-      {/* iPad-style subtle inner highlight */}
       <motion.div
         style={{
           position: 'absolute',
@@ -97,7 +160,6 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ state }) => {
         }}
       />
 
-      {/* Pinch state: outer ring */}
       {state === 'pinch' && (
         <motion.div
           initial={{ scale: 1, opacity: 0.5 }}
@@ -116,7 +178,6 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ state }) => {
         />
       )}
 
-      {/* Scroll state: subtle vertical elongation effect */}
       {state === 'scroll' && (
         <motion.div
           animate={{ scaleY: [1, 1.2, 1] }}
