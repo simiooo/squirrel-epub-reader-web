@@ -131,12 +131,16 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
   });
 
   useEffect(() => {
+    let frameCount = 0;
     const animate = () => {
       const container = containerRef.current;
       const currentPosition = positionRef.current;
       const currentState = stateRef.current;
 
-      console.log('[GestureCursor] animate tick, currentPosition:', currentPosition, 'container:', !!container);
+      frameCount++;
+      if (frameCount % 60 === 0) {
+        console.log('[GestureCursor] animate running, position:', currentPosition, 'container:', !!container);
+      }
 
       if (container && currentPosition) {
         const config = cursorConfigs[currentState];
@@ -147,8 +151,6 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
         const dy = targetY - lastPositionRef.current.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        console.log('[GestureCursor] Distance:', distance);
-
         if (distance > JITTER_THRESHOLD) {
           console.log('[GestureCursor] Moving cursor to:', targetX, targetY);
           lastPositionRef.current = { x: targetX, y: targetY };
@@ -156,7 +158,6 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
         }
 
         // 每帧都进行 hover 检测
-        console.log('[GestureCursor] Calling checkHoverAtPosition at:', currentPosition.x, currentPosition.y);
         checkHoverAtPosition(currentPosition.x, currentPosition.y);
       }
 
@@ -165,7 +166,7 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
       }
     };
 
-    console.log('[GestureCursor] Starting animation loop, isRunning:', isRunningRef.current);
+    console.log('[GestureCursor] Starting animation loop');
     if (!isRunningRef.current) {
       isRunningRef.current = true;
       rafRef.current = requestAnimationFrame(animate);
@@ -201,7 +202,6 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
   }, []);
 
   const setContainerRef = (el: HTMLDivElement | null) => {
-    console.log('[GestureCursor] setContainerRef called, el:', !!el);
     containerRef.current = el;
     setCursorElement(el);
   };

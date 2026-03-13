@@ -21,17 +21,12 @@ export const setCursorTargetPosition = (x: number, y: number) => {
 
 // 直接触发一次 hover 检测（供外部调用）
 export const checkHoverAtPosition = (x: number, y: number) => {
-  console.log('[checkHoverAtPosition] Checking at:', x, y, 'cursorElement:', !!cursorElement);
-  if (!cursorElement) {
-    console.log('[checkHoverAtPosition] No cursor element, skipping');
-    return;
-  }
+  if (!cursorElement) return;
   
   // 临时隐藏光标以获得准确检测
   cursorElement.style.visibility = 'hidden';
   
   const element = document.elementFromPoint(x, y);
-  console.log('[checkHoverAtPosition] elementFromPoint:', element?.tagName, element?.className);
   
   cursorElement.style.visibility = '';
   
@@ -39,13 +34,8 @@ export const checkHoverAtPosition = (x: number, y: number) => {
   const detectedCard = element?.closest('.book-card') as HTMLElement | null;
   const detectedButton = element?.closest('[data-gesture-clickable], button, a, .ant-btn, .ant-btn-icon-only') as HTMLElement | null;
   
-  console.log('[checkHoverAtPosition] detectedCard:', !!detectedCard, 'detectedButton:', !!detectedButton);
-  console.log('[checkHoverAtPosition] lastHoveredCard before:', !!lastHoveredCard);
-  
   // 直接应用 hover 状态，不需要连续帧验证
   applyHoverState(detectedCard, detectedButton);
-  
-  console.log('[checkHoverAtPosition] lastHoveredCard after:', !!lastHoveredCard);
 };
 
 export const setCursorElement = (el: HTMLElement | null) => {
@@ -99,17 +89,17 @@ const getElementAtCursor = (x: number, y: number): Element | null => {
 
 // 应用hover状态变更
 const applyHoverState = (newCard: HTMLElement | null, newButton: HTMLElement | null) => {
-  console.log('[applyHoverState] newCard:', !!newCard, 'lastHoveredCard:', !!lastHoveredCard, 'same?', newCard === lastHoveredCard);
   // 更新卡片hover状态
   if (newCard !== lastHoveredCard) {
     if (lastHoveredCard) {
-      console.log('[applyHoverState] Removing gesture-hover from previous card');
       lastHoveredCard.classList.remove('gesture-hover');
     }
     
     if (newCard) {
-      console.log('[applyHoverState] Adding gesture-hover to new card');
+      console.log('[applyHoverState] Adding gesture-hover to new card:', newCard);
       newCard.classList.add('gesture-hover');
+    } else {
+      console.log('[applyHoverState] Removing gesture-hover from card');
     }
     
     lastHoveredCard = newCard;
