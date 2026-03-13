@@ -131,16 +131,10 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
   });
 
   useEffect(() => {
-    let frameCount = 0;
     const animate = () => {
       const container = containerRef.current;
       const currentPosition = positionRef.current;
       const currentState = stateRef.current;
-
-      frameCount++;
-      if (frameCount % 60 === 0) {
-        console.log('[GestureCursor] animate running, position:', currentPosition, 'container:', !!container);
-      }
 
       if (container && currentPosition) {
         const config = cursorConfigs[currentState];
@@ -152,7 +146,6 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance > JITTER_THRESHOLD) {
-          console.log('[GestureCursor] Moving cursor to:', targetX, targetY);
           lastPositionRef.current = { x: targetX, y: targetY };
           container.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
         }
@@ -166,14 +159,12 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
       }
     };
 
-    console.log('[GestureCursor] Starting animation loop');
     if (!isRunningRef.current) {
       isRunningRef.current = true;
       rafRef.current = requestAnimationFrame(animate);
     }
 
     return () => {
-      console.log('[GestureCursor] Stopping animation loop');
       isRunningRef.current = false;
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
@@ -192,7 +183,6 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
 
   useEffect(() => {
     return () => {
-      console.log('[GestureCursor] Cleanup called');
       isRunningRef.current = false;
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
@@ -203,16 +193,11 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
   }, []);
 
   const setContainerRef = useCallback((el: HTMLDivElement | null) => {
-    console.log('[GestureCursor] setContainerRef called with:', !!el);
-    if (!el && containerRef.current) {
-      console.log('[GestureCursor] Container ref being cleared!');
-    }
     containerRef.current = el;
     setCursorElement(el);
   }, []);
 
   if (state === 'idle' || !position) {
-    console.log('[GestureCursor] Returning null - state:', state, 'position:', !!position);
     return null;
   }
 

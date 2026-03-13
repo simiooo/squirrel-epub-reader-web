@@ -96,10 +96,7 @@ const applyHoverState = (newCard: HTMLElement | null, newButton: HTMLElement | n
     }
     
     if (newCard) {
-      console.log('[applyHoverState] Adding gesture-hover to new card:', newCard);
       newCard.classList.add('gesture-hover');
-    } else {
-      console.log('[applyHoverState] Removing gesture-hover from card');
     }
     
     lastHoveredCard = newCard;
