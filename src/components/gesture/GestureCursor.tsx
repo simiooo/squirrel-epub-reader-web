@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, memo } from 'react';
 import { motion } from 'framer-motion';
 import type { GestureState } from '../../stores/gestureStore';
-import { setCursorElement, startHoverCheck, stopHoverCheck, handlePinchStart, handlePinchEnd } from '../../utils/cursorManager';
+import { setCursorElement, startHoverCheck, stopHoverCheck, handlePinchStart, handlePinchEnd, setCursorTargetPosition } from '../../utils/cursorManager';
 
 interface GestureCursorProps {
   position: { x: number; y: number } | null;
@@ -157,6 +157,8 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
       if (distance > JITTER_THRESHOLD) {
         lastPositionRef.current = { x: targetX, y: targetY };
         container.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
+        // 使用手势输入的中心位置进行 hover 检测
+        setCursorTargetPosition(currentPosition.x, currentPosition.y);
       }
 
       lastTimeRef.current = timestamp;

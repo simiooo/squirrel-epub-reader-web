@@ -5,6 +5,7 @@ let lastHoveredCard: HTMLElement | null = null;
 let lastHoveredButton: HTMLElement | null = null;
 let pinchStartTime: number | null = null;
 let isPinching = false;
+let cursorPosition: { x: number; y: number } | null = null;
 
 // 连续帧验证
 let pendingCard: HTMLElement | null = null;
@@ -13,6 +14,10 @@ let confirmationFrames = 0;
 const REQUIRED_CONFIRMATION_FRAMES = 3; // 需要连续3帧检测到相同元素才确认
 
 const PINCH_DURATION_THRESHOLD = 500; // 捏合手势持续时间阈值（毫秒）
+
+export const setCursorTargetPosition = (x: number, y: number) => {
+  cursorPosition = { x, y };
+};
 
 export const setCursorElement = (el: HTMLElement | null) => {
   cursorElement = el;
@@ -100,11 +105,10 @@ const applyHoverState = (newCard: HTMLElement | null, newButton: HTMLElement | n
 };
 
 const checkHover = () => {
-  if (!cursorElement) return;
+  if (!cursorElement || !cursorPosition) return;
   
-  const rect = cursorElement.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
+  const centerX = cursorPosition.x;
+  const centerY = cursorPosition.y;
   
   // 获取光标下的元素
   const element = getElementAtCursor(centerX, centerY);
