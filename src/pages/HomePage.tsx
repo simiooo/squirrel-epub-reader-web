@@ -5,7 +5,6 @@ import { CloudOutlined, SyncOutlined, DownOutlined } from '@ant-design/icons';
 import { BookList } from '../components/BookList';
 import { BookImport } from '../components/BookImport';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
-import { CloudStoragePanel } from '../components/CloudStoragePanel';
 import { SettingsButton } from '../components/SettingsButton';
 import { GestureOverlay } from '../components/gesture/GestureOverlay';
 import { CloudBookList } from '../components/cloud/CloudBookList';
@@ -114,10 +113,11 @@ export const HomePage: React.FC = () => {
   }
 
   return (
-    <div 
+    <div
       data-gesture-scrollable
       style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', padding: 24, overflow: 'auto' }}
     >
+      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
       <GestureOverlay />
       <div style={{ 
         marginBottom: 24, 
@@ -129,9 +129,8 @@ export const HomePage: React.FC = () => {
       }}>
         <Title level={2} style={{ margin: 0 }}>{t('nav.myBookshelf')}</Title>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <CloudStoragePanel onSyncComplete={handleSyncComplete} />
           <LanguageSwitcher />
-          <SettingsButton />
+          <SettingsButton onCloudSyncComplete={handleSyncComplete} />
           <BookImport onImport={handleImport} />
         </div>
       </div>
@@ -210,6 +209,7 @@ export const HomePage: React.FC = () => {
           </Collapse>
         </>
       )}
+      </div>
     </div>
   );
 };

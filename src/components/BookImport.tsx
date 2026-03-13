@@ -100,7 +100,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
       </Upload>
 
       <Modal
-        title={t('book.importConfirm')}
+        title={t('book.importLocalOnly')}
         open={previewVisible}
         onOk={handleImport}
         onCancel={() => {
@@ -109,7 +109,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
           setFileList([]);
         }}
         confirmLoading={uploading}
-        okText={t('common.confirm')}
+        okText={t('book.importToLocal')}
         cancelText={t('common.cancel')}
       >
         {previewBook && (
@@ -144,6 +144,9 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
             )}
             <h3 style={{ margin: '16px 0 8px' }}>{previewBook.title}</h3>
             <p style={{ color: '#666', margin: 0 }}>{t('book.author')}：{previewBook.author}</p>
+            <p style={{ color: '#999', fontSize: 12, marginTop: 16, padding: '8px 16px', backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+              {t('book.localOnlyTip')}
+            </p>
           </div>
         )}
       </Modal>

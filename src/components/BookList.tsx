@@ -12,6 +12,7 @@ import {
   Popconfirm,
   Badge,
   Tag,
+  Tooltip,
 } from 'antd';
 import {
   DeleteOutlined,
@@ -127,7 +128,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
     <>
       <List
         grid={{
-          gutter: 24,
+          gutter: 16,
           xs: 1,
           sm: 2,
           md: 3,
@@ -153,8 +154,8 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                   onClick={() => navigate(`/read/${book.id}`)}
                   cover={
                     book.cover ? (
-                      <div style={{ 
-                        height: 280, 
+                      <div style={{
+                        height: 220,
                         overflow: 'hidden',
                         position: 'relative',
                       }}>
@@ -173,7 +174,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                     ) : (
                       <div
                         style={{
-                          height: 280,
+                          height: 220,
                           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                           display: 'flex',
                           flexDirection: 'column',
@@ -183,52 +184,51 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                           borderTopRightRadius: 8,
                         }}
                       >
-                        <BookOutlined style={{ fontSize: 64, color: 'rgba(255, 255, 255, 0.8)', marginBottom: 16 }} />
-                        <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 14 }}>{t('book.noCover')}</span>
+                        <BookOutlined style={{ fontSize: 48, color: 'rgba(255, 255, 255, 0.8)', marginBottom: 12 }} />
+                        <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12 }}>{t('book.noCover')}</span>
                       </div>
                     )
                   }
                   actions={[
-                    <Button
-                      key="read"
-                      type="text"
-                      icon={<EyeOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/read/${book.id}`);
-                      }}
-                    >
-                      {t('book.read')}
-                    </Button>,
-                    ...(hasConnectors ? [
+                    <Tooltip title={t('book.read')}>
                       <Button
-                        key="sync"
+                        key="read"
                         type="text"
-                        icon={isSynced ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <CloudUploadOutlined />}
+                        icon={<EyeOutlined />}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleSyncToCloud(book);
+                          navigate(`/read/${book.id}`);
                         }}
-                        disabled={isSynced}
-                      >
-                        {isSynced ? t('cloudStorage.cloudBooks.syncStatus.synced') : t('cloudStorage.syncToCloud.title')}
-                      </Button>
+                      />
+                    </Tooltip>,
+                    ...(hasConnectors ? [
+                      <Tooltip key="sync" title={isSynced ? t('cloudStorage.cloudBooks.syncStatus.synced') : t('cloudStorage.syncToCloud.title')}>
+                        <Button
+                          type="text"
+                          icon={isSynced ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <CloudUploadOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSyncToCloud(book);
+                          }}
+                          disabled={isSynced}
+                        />
+                      </Tooltip>
                     ] : []),
-                    <Popconfirm
-                      key="delete"
-                      title={t('book.deleteConfirm')}
-                      description={t('book.deleteConfirmDesc')}
-                      onConfirm={(e) => {
-                        e?.stopPropagation();
-                        handleDelete(book.id);
-                      }}
-                      okText={t('common.delete')}
-                      cancelText={t('common.cancel')}
-                    >
-                      <Button type="text" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>
-                        {t('common.delete')}
-                      </Button>
-                    </Popconfirm>,
+                    <Tooltip title={t('common.delete')}>
+                      <Popconfirm
+                        key="delete"
+                        title={t('book.deleteConfirm')}
+                        description={t('book.deleteConfirmDesc')}
+                        onConfirm={(e) => {
+                          e?.stopPropagation();
+                          handleDelete(book.id);
+                        }}
+                        okText={t('common.delete')}
+                        cancelText={t('common.cancel')}
+                      >
+                        <Button type="text" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()} />
+                      </Popconfirm>
+                    </Tooltip>,
                   ]}
                 >
                   <Card.Meta

@@ -1,6 +1,9 @@
 import React from 'react';
-import { Button, Space } from 'antd';
+import { Select } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { GlobalOutlined } from '@ant-design/icons';
+
+const { Option } = Select;
 
 export const LanguageSwitcher: React.FC = () => {
   const { i18n } = useTranslation();
@@ -11,21 +14,17 @@ export const LanguageSwitcher: React.FC = () => {
   };
 
   return (
-    <Space>
-      <Button
-        type={currentLang === 'zh' ? 'primary' : 'default'}
-        onClick={() => changeLanguage('zh')}
-        size="small"
-      >
-        中文
-      </Button>
-      <Button
-        type={currentLang === 'en' ? 'primary' : 'default'}
-        onClick={() => changeLanguage('en')}
-        size="small"
-      >
-        English
-      </Button>
-    </Space>
+    <Select
+      value={currentLang}
+      onChange={changeLanguage}
+      style={{ width: 100 }}
+      bordered={false}
+      suffixIcon={<GlobalOutlined />}
+    >
+      <Option value="zh">中文</Option>
+      <Option value="en">English</Option>
+    </Select>
   );
 };
+
+export default LanguageSwitcher;
