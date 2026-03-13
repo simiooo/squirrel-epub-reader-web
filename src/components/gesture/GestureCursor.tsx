@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, memo } from 'react';
+import React, { useEffect, useRef, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import type { GestureState } from '../../stores/gestureStore';
 import { setCursorElement, stopHoverCheck, handlePinchStart, handlePinchEnd, checkHoverAtPosition } from '../../utils/cursorManager';
@@ -202,14 +202,14 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
     };
   }, []);
 
-  const setContainerRef = (el: HTMLDivElement | null) => {
+  const setContainerRef = useCallback((el: HTMLDivElement | null) => {
     console.log('[GestureCursor] setContainerRef called with:', !!el);
     if (!el && containerRef.current) {
       console.log('[GestureCursor] Container ref being cleared!');
     }
     containerRef.current = el;
     setCursorElement(el);
-  };
+  }, []);
 
   if (state === 'idle' || !position) {
     console.log('[GestureCursor] Returning null - state:', state, 'position:', !!position);
