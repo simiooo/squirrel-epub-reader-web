@@ -1,6 +1,7 @@
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { Analytics } from '@vercel/analytics/react';
 import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
 import { routes } from './routes';
@@ -31,6 +32,7 @@ function App() {
       }}
     >
       <RouterProvider router={router} />
+      <Analytics />
     </ConfigProvider>
   );
 }

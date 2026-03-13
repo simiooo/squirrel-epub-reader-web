@@ -15,6 +15,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1008.0",
     "@mediapipe/tasks-vision": "^0.10.32",
     "@types/jszip": "^3.4.1",
+    "@vercel/analytics": "^2.0.1",
     "antd": "^6.3.0",
     "dexie": "^4.3.0",
     "framer-motion": "^12.35.2",
