@@ -27,6 +27,10 @@ export class EpubDatabase extends Dexie {
         delete (connector as Record<string, unknown>).syncInterval;
       });
     });
+    
+    this.version(5).stores({
+      cloudBooks: 'id, bookId, connectorId, &remotePath, checksum, syncStatus, cachedAt',
+    });
   }
 }
 
