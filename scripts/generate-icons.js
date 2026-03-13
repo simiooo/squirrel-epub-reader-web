@@ -8,16 +8,17 @@ const __dirname = dirname(__filename);
 
 const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 const publicDir = join(__dirname, '..', 'public');
+const assetsDir = join(__dirname, '..', 'src', 'assets');
 
 async function generateIcons() {
-  const svgBuffer = readFileSync(join(publicDir, 'icon.svg'));
+  const logoBuffer = readFileSync(join(assetsDir, 'logo.png'));
   
   console.log('Generating PWA icons...');
   
   for (const size of sizes) {
     const outputPath = join(publicDir, `icon-${size}x${size}.png`);
     
-    await sharp(svgBuffer)
+    await sharp(logoBuffer)
       .resize(size, size)
       .png()
       .toFile(outputPath);
@@ -26,7 +27,7 @@ async function generateIcons() {
   }
   
   // Generate favicon (32x32)
-  await sharp(svgBuffer)
+  await sharp(logoBuffer)
     .resize(32, 32)
     .png()
     .toFile(join(publicDir, 'favicon.png'));
@@ -34,7 +35,7 @@ async function generateIcons() {
   console.log('✓ Generated favicon.png');
   
   // Generate apple touch icon (180x180)
-  await sharp(svgBuffer)
+  await sharp(logoBuffer)
     .resize(180, 180)
     .png()
     .toFile(join(publicDir, 'apple-touch-icon.png'));

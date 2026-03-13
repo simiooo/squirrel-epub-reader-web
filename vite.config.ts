@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon.svg'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo.png'],
       manifest: {
         name: '松鼠EPUB阅读器',
         short_name: '松鼠阅读',
