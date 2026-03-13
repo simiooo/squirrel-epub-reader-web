@@ -9,7 +9,8 @@
     "close": "关闭",
     "back": "返回",
     "success": "成功",
-    "error": "错误"
+    "error": "错误",
+    "appUpdated": "应用已更新到最新版本"
   },
   "nav": {
     "myBookshelf": "我的书架",
@@ -145,6 +146,8 @@
       "connectionFailed": "连接测试失败：{{error}}",
       "save": "保存配置",
       "disconnect": "断开连接",
+      "disconnected": "已断开连接",
+      "authFailed": "认证失败：{{error}}",
       "appKey": "App Key",
       "appKeyPlaceholder": "请输入 Dropbox App Key",
       "clientId": "Client ID",
@@ -177,7 +180,8 @@
       "downloading": "正在下载...",
       "downloadSuccess": "书籍已下载到本地",
       "downloadFailed": "下载失败：{{error}}",
-      "open": "打开阅读",
+      "deleteSuccess": "云端书籍已删除",
+      "deleteFailed": "删除云端书籍失败：{{error}}",
       "cached": "已缓存",
       "notCached": "未缓存",
       "syncStatus": {

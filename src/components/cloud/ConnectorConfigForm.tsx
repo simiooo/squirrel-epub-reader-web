@@ -89,7 +89,7 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
         
         if (error) {
           setAuthStatus('error');
-          message.error(`认证失败: ${error}`);
+          message.error(t('cloudStorage.config.authFailed', { error }));
           return;
         }
 
@@ -238,9 +238,9 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
       }
       setAuthStatus('unauthenticated');
       setCurrentStep(0);
-      message.success('已断开连接');
-    } catch (error) {
-      message.error(`${error}`);
+      message.success(t('cloudStorage.config.disconnected'));
+    } catch (_error) {
+      message.error(t('common.error'));
     }
   };
 

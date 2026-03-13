@@ -23,11 +23,11 @@ if ('serviceWorker' in navigator) {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             // New content is available, show update prompt
             Modal.confirm({
-              title: '发现新版本',
+              title: 'New Version Available',
               icon: <ReloadOutlined />,
-              content: '应用有新版本可用，是否立即更新？',
-              okText: '立即更新',
-              cancelText: '稍后',
+              content: 'A new version of the application is available. Would you like to update now?',
+              okText: 'Update Now',
+              cancelText: 'Later',
               onOk() {
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
                 window.location.reload();
@@ -42,7 +42,7 @@ if ('serviceWorker' in navigator) {
   // Handle messages from service worker
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SW_UPDATE') {
-      message.success('应用已更新到最新版本');
+      message.success('Application updated successfully');
     }
   });
 }

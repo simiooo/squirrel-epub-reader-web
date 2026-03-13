@@ -9,7 +9,8 @@
     "close": "Close",
     "back": "Back",
     "success": "Success",
-    "error": "Error"
+    "error": "Error",
+    "appUpdated": "Application updated to the latest version"
   },
   "nav": {
     "myBookshelf": "My Bookshelf",
@@ -145,6 +146,8 @@
       "connectionFailed": "Connection test failed: {{error}}",
       "save": "Save Configuration",
       "disconnect": "Disconnect",
+      "disconnected": "Disconnected",
+      "authFailed": "Authentication failed: {{error}}",
       "appKey": "App Key",
       "appKeyPlaceholder": "Enter Dropbox App Key",
       "clientId": "Client ID",
@@ -177,7 +180,8 @@
       "downloading": "Downloading...",
       "downloadSuccess": "Book downloaded to local storage",
       "downloadFailed": "Download failed: {{error}}",
-      "open": "Open to Read",
+      "deleteSuccess": "Cloud book deleted successfully",
+      "deleteFailed": "Failed to delete cloud book: {{error}}",
       "cached": "Cached",
       "notCached": "Not Cached",
       "syncStatus": {

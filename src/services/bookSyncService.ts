@@ -45,7 +45,7 @@ export type ProgressCallback = (progress: SyncProgress) => void;
 /**
  * 获取连接器实例
  */
-function getConnectorInstance(connector: StoredConnector): CloudStorageConnector | null {
+export function getConnectorInstance(connector: StoredConnector): CloudStorageConnector | null {
   const config = {
     id: connector.id,
     name: connector.name,
