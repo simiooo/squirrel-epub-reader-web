@@ -124,7 +124,6 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
   const positionRef = useRef(position);
   const stateRef = useRef(state);
   const lastPositionRef = useRef({ x: 0, y: 0 });
-  const lastTimeRef = useRef(0);
 
   useEffect(() => {
     positionRef.current = position;
@@ -132,56 +131,48 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
   });
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const animate = (timestamp: number) => {
+    const animate = () => {
+      const container = containerRef.current;
       const currentPosition = positionRef.current;
       const currentState = stateRef.current;
 
-      console.log('[GestureCursor] animate tick, currentPosition:', currentPosition);
+      console.log('[GestureCursor] animate tick, currentPosition:', currentPosition, 'container:', !!container);
 
-      if (!currentPosition) {
-        console.log('[GestureCursor] No current position, skipping');
-        if (isRunningRef.current) {
-          rafRef.current = requestAnimationFrame(animate);
+      if (container && currentPosition) {
+        const config = cursorConfigs[currentState];
+        const targetX = currentPosition.x - config.size / 2;
+        const targetY = currentPosition.y - config.size / 2;
+
+        const dx = targetX - lastPositionRef.current.x;
+        const dy = targetY - lastPositionRef.current.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        console.log('[GestureCursor] Distance:', distance);
+
+        if (distance > JITTER_THRESHOLD) {
+          console.log('[GestureCursor] Moving cursor to:', targetX, targetY);
+          lastPositionRef.current = { x: targetX, y: targetY };
+          container.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
         }
-        return;
+
+        // 每帧都进行 hover 检测
+        console.log('[GestureCursor] Calling checkHoverAtPosition at:', currentPosition.x, currentPosition.y);
+        checkHoverAtPosition(currentPosition.x, currentPosition.y);
       }
-
-      const config = cursorConfigs[currentState];
-      const targetX = currentPosition.x - config.size / 2;
-      const targetY = currentPosition.y - config.size / 2;
-
-      const dx = targetX - lastPositionRef.current.x;
-      const dy = targetY - lastPositionRef.current.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      console.log('[GestureCursor] Distance:', distance, 'JITTER_THRESHOLD:', JITTER_THRESHOLD);
-
-      if (distance > JITTER_THRESHOLD) {
-        console.log('[GestureCursor] Moving cursor to:', targetX, targetY);
-        lastPositionRef.current = { x: targetX, y: targetY };
-        container.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
-      }
-
-      // 每帧都进行 hover 检测，确保即使光标不动也能触发 hover
-      console.log('[GestureCursor] Calling checkHoverAtPosition at:', currentPosition.x, currentPosition.y);
-      checkHoverAtPosition(currentPosition.x, currentPosition.y);
-
-      lastTimeRef.current = timestamp;
 
       if (isRunningRef.current) {
         rafRef.current = requestAnimationFrame(animate);
       }
     };
 
+    console.log('[GestureCursor] Starting animation loop, isRunning:', isRunningRef.current);
     if (!isRunningRef.current) {
       isRunningRef.current = true;
       rafRef.current = requestAnimationFrame(animate);
     }
 
     return () => {
+      console.log('[GestureCursor] Stopping animation loop');
       isRunningRef.current = false;
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
