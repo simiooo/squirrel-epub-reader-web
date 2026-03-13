@@ -12,7 +12,7 @@ export class EpubDatabase extends Dexie {
 
   constructor() {
     super('EpubReaderDB');
-    this.version(3).stores({
+    this.version(4).stores({
       books: 'id, &metadata.identifier, addedAt',
       progress: 'bookId',
       bookmarks: 'id, bookId, chapterId, createdAt',
@@ -20,6 +20,12 @@ export class EpubDatabase extends Dexie {
       connectors: 'id, type, createdAt',
       cloudBooks: 'id, bookId, connectorId, &remotePath, syncStatus, cachedAt',
       syncRecords: 'id, bookId, connectorId, status, timestamp',
+    }).upgrade(tx => {
+      // 升级：移除 connectors 表中的 autoSync 和 syncInterval 字段
+      return tx.table('connectors').toCollection().modify(connector => {
+        delete (connector as Record<string, unknown>).autoSync;
+        delete (connector as Record<string, unknown>).syncInterval;
+      });
     });
   }
 }

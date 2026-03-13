@@ -49,6 +49,7 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
       if (editingConnector) {
         form.setFieldsValue({
           name: editingConnector.name,
+          authStatus: editingConnector.authStatus,
           ...editingConnector.settings,
         });
         setAuthStatus((editingConnector.authStatus as AuthStatus) || 'unauthenticated');
@@ -125,8 +126,6 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
       name: form.getFieldValue('name') || type,
       type,
       settings,
-      autoSync: form.getFieldValue('autoSync') ?? true,
-      syncInterval: form.getFieldValue('syncInterval') ?? 60,
       createdAt: new Date(),
     };
 
@@ -156,7 +155,7 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
       const values = form.getFieldsValue();
       const settings: Record<string, unknown> = {};
       Object.keys(values).forEach(key => {
-        if (!['name', 'autoSync', 'syncInterval'].includes(key)) {
+        if (key !== 'name') {
           settings[key] = values[key];
         }
       });
@@ -165,8 +164,20 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
       if (connector && 'testConnection' in connector) {
         const result = await connector.testConnection();
         setTestResult(result);
+        console.log('Test connection result:', result);
         if (result.success) {
-          message.success(t('cloudStorage.config.connectionSuccess'));
+          // 对于非OAuth认证方式（如S3），测试连接成功即视为已认证
+          if (!requiresOAuth) {
+            console.log('Test successful, setting authStatus to authenticated');
+            // 更新表单字段，然后自动提交
+            form.setFieldsValue({ authStatus: 'authenticated' });
+            setAuthStatus('authenticated');
+            setCurrentStep(1);
+            // 自动触发表单提交
+            form.submit();
+          } else {
+            message.success(t('cloudStorage.config.connectionSuccess'));
+          }
         } else {
           message.error(t('cloudStorage.config.connectionFailed', { error: result.message }));
         }
@@ -188,12 +199,12 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
     }
 
     const values = form.getFieldsValue();
-    const settings: Record<string, unknown> = {};
-    Object.keys(values).forEach(key => {
-      if (!['name', 'autoSync', 'syncInterval'].includes(key)) {
-        settings[key] = values[key];
-      }
-    });
+      const settings: Record<string, unknown> = {};
+      Object.keys(values).forEach(key => {
+        if (key !== 'name') {
+          settings[key] = values[key];
+        }
+      });
 
     // 先保存配置
     const connectorId = editingConnector?.id || `${connectorType}-${Date.now()}`;
@@ -240,19 +251,23 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
 
       const settings: Record<string, unknown> = {};
       Object.keys(values).forEach(key => {
-        if (!['name', 'autoSync', 'syncInterval'].includes(key)) {
+        // 排除 name 和 authStatus，只保留实际的配置项
+        if (key !== 'name' && key !== 'authStatus') {
           settings[key] = values[key];
         }
       });
+
+      // 优先使用表单中的 authStatus，否则使用 state
+      const finalAuthStatus = (values.authStatus as AuthStatus) || authStatus;
 
       const connector: Omit<StoredConnector, 'id' | 'createdAt'> = {
         name: values.name,
         type: connectorType,
         settings,
-        autoSync: false,
-        authStatus: authStatus,
+        authStatus: finalAuthStatus,
       };
 
+      console.log('Saving connector with authStatus:', finalAuthStatus, connector);
       await onSubmit(connector);
       form.resetFields();
     } catch (error) {
@@ -392,6 +407,11 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
         layout="vertical"
         onFinish={handleSubmit}
       >
+        {/* 隐藏的 authStatus 字段，用于在测试连接成功后自动提交 */}
+        <Form.Item name="authStatus" hidden>
+          <Input />
+        </Form.Item>
+
         <Form.Item
           name="name"
           label={t('cloudStorage.connectorName')}
@@ -468,9 +488,9 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
               type="primary" 
               htmlType="submit" 
               loading={loading}
-              disabled={requiresOAuth && authStatus !== 'authenticated'}
+              disabled={requiresOAuth ? authStatus !== 'authenticated' : !testResult?.success && !editingConnector}
             >
-              {t('cloudStorage.config.save')}
+              {editingConnector ? t('common.save') : t('cloudStorage.config.save')}
             </Button>
           </Space>
         </Form.Item>

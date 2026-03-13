@@ -132,6 +132,7 @@ export const CloudStoragePanel: React.FC<CloudStoragePanelProps> = ({ onSyncComp
 
   const handleSaveConnector = useCallback(async (connectorData: Omit<StoredConnector, 'id' | 'createdAt'>) => {
     try {
+      console.log('handleSaveConnector received:', connectorData);
       if (editingConnector) {
         // 更新现有连接器
         const updated: StoredConnector = {
@@ -140,6 +141,7 @@ export const CloudStoragePanel: React.FC<CloudStoragePanelProps> = ({ onSyncComp
           id: editingConnector.id,
           createdAt: editingConnector.createdAt,
         };
+        console.log('Updating connector:', updated);
         await updateConnector(updated);
         setConnectors(prev => prev.map(c => c.id === editingConnector.id ? updated : c));
         message.success(t('common.success'));
@@ -150,6 +152,7 @@ export const CloudStoragePanel: React.FC<CloudStoragePanelProps> = ({ onSyncComp
           id: `${connectorData.type}-${Date.now()}`,
           createdAt: new Date().toISOString(),
         };
+        console.log('Adding new connector:', newConnector);
         await addConnector(newConnector);
         setConnectors(prev => [...prev, newConnector]);
         message.success(t('cloudStorage.connectorAdded'));
@@ -375,7 +378,6 @@ const CustomConnectorForm: React.FC<CustomConnectorFormProps> = ({ onSubmit }) =
         name: values.name,
         type: 'custom',
         settings: { code: values.code },
-        autoSync: false,
         authStatus: 'unauthenticated',
       });
       

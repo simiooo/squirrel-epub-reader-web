@@ -32,10 +32,6 @@ export interface ConnectorConfig {
   type: string;
   /** 用户自定义配置 */
   settings: Record<string, unknown>;
-  /** 是否启用自动同步 */
-  autoSync: boolean;
-  /** 同步间隔（分钟） */
-  syncInterval?: number;
   /** 最后同步时间 */
   lastSyncAt?: Date;
   /** 创建时间 */
@@ -460,13 +456,7 @@ export interface MultiCloudStorageManager {
   getConnector(connectorId: string): CloudStorageConnector | undefined;
   
   /**
-   * 获取启用了自动同步的连接器
-   * @returns 连接器列表
-   */
-  getAutoSyncConnectors(): CloudStorageConnector[];
-  
-  /**
-   * 同步所有启用了自动同步的连接器
+   * 同步所有连接器
    * @param options 同步选项
    * @returns 各连接器的同步结果
    */

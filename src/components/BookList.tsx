@@ -47,6 +47,9 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
         getAllConnectors(),
       ]);
       
+      console.log('BookList - All connectors:', allConnectors);
+      console.log('BookList - Authenticated connectors:', allConnectors.filter(c => c.authStatus === 'authenticated'));
+      
       setBooks(allBooks);
       setConnectors(allConnectors.filter(c => c.authStatus === 'authenticated'));
 
@@ -197,7 +200,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                     >
                       {t('book.read')}
                     </Button>,
-                    hasConnectors && (
+                    ...(hasConnectors ? [
                       <Button
                         key="sync"
                         type="text"
@@ -208,9 +211,9 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                         }}
                         disabled={isSynced}
                       >
-                        {isSynced ? t('cloudStorage.cloudBooks.syncStatus.synced') : ''}
+                        {isSynced ? t('cloudStorage.cloudBooks.syncStatus.synced') : t('cloudStorage.syncToCloud.title')}
                       </Button>
-                    ),
+                    ] : []),
                     <Popconfirm
                       key="delete"
                       title={t('book.deleteConfirm')}
@@ -226,7 +229,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
                         {t('common.delete')}
                       </Button>
                     </Popconfirm>,
-                  ].filter(Boolean)}
+                  ]}
                 >
                   <Card.Meta
                     title={

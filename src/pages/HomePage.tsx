@@ -38,6 +38,9 @@ export const HomePage: React.FC = () => {
         getAllCloudBooks(),
       ]);
       
+      console.log('Loaded connectors:', storedConnectors);
+      console.log('Authenticated connectors:', storedConnectors.filter(c => c.authStatus === 'authenticated'));
+      
       setConnectors(storedConnectors.filter(c => c.authStatus === 'authenticated'));
       
       const booksByConnector = new Map<string, StoredCloudBook[]>();

@@ -64,15 +64,9 @@ export class MultiCloudStorageManagerImpl implements MultiCloudStorageManager {
   private eventListeners = new Set<StorageEventListener>();
   private connectorsChangeListeners = new Set<(connectors: CloudStorageConnector[]) => void>();
   private globalSyncListeners = new Set<(status: { syncing: boolean; progress: number; message: string }) => void>();
-  private syncIntervals = new Map<string, number>();
 
   registerConnector(connector: CloudStorageConnector): void {
     this.connectors.set(connector.config.id, connector);
-    
-    // 设置自动同步
-    if (connector.config.autoSync && connector.config.syncInterval) {
-      this.setupAutoSync(connector);
-    }
 
     // 监听连接器事件
     this.setupConnectorListeners(connector);
@@ -90,9 +84,6 @@ export class MultiCloudStorageManagerImpl implements MultiCloudStorageManager {
   unregisterConnector(connectorId: string): void {
     const connector = this.connectors.get(connectorId);
     if (!connector) return;
-
-    // 清除自动同步定时器
-    this.clearAutoSync(connectorId);
 
     // 移除连接器
     this.connectors.delete(connectorId);
@@ -115,19 +106,15 @@ export class MultiCloudStorageManagerImpl implements MultiCloudStorageManager {
     return this.connectors.get(connectorId);
   }
 
-  getAutoSyncConnectors(): CloudStorageConnector[] {
-    return this.getConnectors().filter(c => c.config.autoSync);
-  }
-
   async syncAll(options?: SyncOptions): Promise<Map<string, SyncResult>> {
     const results = new Map<string, SyncResult>();
-    const autoSyncConnectors = this.getAutoSyncConnectors();
+    const allConnectors = this.getConnectors();
 
     this.notifyGlobalSyncStatus({ syncing: true, progress: 0, message: '开始同步所有连接器...' });
 
-    for (let i = 0; i < autoSyncConnectors.length; i++) {
-      const connector = autoSyncConnectors[i];
-      const progress = (i / autoSyncConnectors.length) * 100;
+    for (let i = 0; i < allConnectors.length; i++) {
+      const connector = allConnectors[i];
+      const progress = (i / allConnectors.length) * 100;
       
       this.notifyGlobalSyncStatus({
         syncing: true,
@@ -189,7 +176,7 @@ export class MultiCloudStorageManagerImpl implements MultiCloudStorageManager {
   }
 
   async syncBookToAll(bookId: string, options?: SyncOptions): Promise<void> {
-    const connectors = this.getAutoSyncConnectors();
+    const connectors = this.getConnectors();
     
     await Promise.all(
       connectors.map(async (connector) => {
@@ -241,7 +228,6 @@ export class MultiCloudStorageManagerImpl implements MultiCloudStorageManager {
       name,
       type,
       settings,
-      autoSync: false,
       createdAt: new Date(),
     };
   }
@@ -257,33 +243,6 @@ export class MultiCloudStorageManagerImpl implements MultiCloudStorageManager {
   ): CloudStorageConnector {
     const config = this.createConnectorConfig(type, name, settings);
     return registry.create(type, config);
-  }
-
-  private setupAutoSync(connector: CloudStorageConnector): void {
-    const interval = connector.config.syncInterval;
-    if (!interval || interval <= 0) return;
-
-    // 清除现有的定时器
-    this.clearAutoSync(connector.config.id);
-
-    // 设置新的定时器（转换为毫秒）
-    const timerId = window.setInterval(async () => {
-      try {
-        await connector.sync();
-      } catch (error) {
-        console.error(`自动同步失败 (${connector.config.name}):`, error);
-      }
-    }, interval * 60 * 1000);
-
-    this.syncIntervals.set(connector.config.id, timerId);
-  }
-
-  private clearAutoSync(connectorId: string): void {
-    const timerId = this.syncIntervals.get(connectorId);
-    if (timerId) {
-      window.clearInterval(timerId);
-      this.syncIntervals.delete(connectorId);
-    }
   }
 
   private setupConnectorListeners(connector: CloudStorageConnector): void {
@@ -337,12 +296,6 @@ export class MultiCloudStorageManagerImpl implements MultiCloudStorageManager {
    * 清理所有资源
    */
   dispose(): void {
-    // 清除所有定时器
-    this.syncIntervals.forEach((timerId) => {
-      window.clearInterval(timerId);
-    });
-    this.syncIntervals.clear();
-
     // 清除所有监听器
     this.eventListeners.clear();
     this.connectorsChangeListeners.clear();

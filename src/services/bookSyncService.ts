@@ -51,8 +51,6 @@ function getConnectorInstance(connector: StoredConnector): CloudStorageConnector
     name: connector.name,
     type: connector.type,
     settings: connector.settings,
-    autoSync: connector.autoSync,
-    syncInterval: connector.syncInterval,
     createdAt: new Date(connector.createdAt),
   };
 

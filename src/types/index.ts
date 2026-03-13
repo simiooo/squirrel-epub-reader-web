@@ -69,8 +69,6 @@ export interface StoredConnector {
   name: string;
   type: string;
   settings: Record<string, unknown>;
-  autoSync: boolean;
-  syncInterval?: number;
   lastSyncAt?: string;
   createdAt: string;
   authStatus?: string;
