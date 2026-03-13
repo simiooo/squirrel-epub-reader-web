@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, memo } from 'react';
 import { motion } from 'framer-motion';
 import type { GestureState } from '../../stores/gestureStore';
 import { setCursorElement, startHoverCheck, stopHoverCheck, handlePinchStart, handlePinchEnd } from '../../utils/cursorManager';
@@ -31,154 +31,17 @@ const cursorConfigs = {
   },
 } as const;
 
-const SMOOTHING = 0.18;
-const VELOCITY_DECAY = 0.65;
-const LOW_PASS_ALPHA = 0.35;
-const DEAD_ZONE = 2;
-const JITTER_THRESHOLD = 0.5;
+const JITTER_THRESHOLD = 1.5;
 
-export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state }) => {
-  const rafRef = useRef<number>(0);
-  const posRef = useRef({ x: 0, y: 0 });
-  const velRef = useRef({ x: 0, y: 0 });
-  const targetRef = useRef<{ x: number; y: number } | null>(null);
-  const elRef = useRef<HTMLDivElement | null>(null);
-  const isRunningRef = useRef(false);
-  const filteredTargetRef = useRef({ x: 0, y: 0 });
-  const lastInputRef = useRef({ x: 0, y: 0 });
-  const lockedPositionRef = useRef<{ x: number; y: number } | null>(null);
-  const prevStateRef = useRef<GestureState>('idle');
+interface CursorVisualProps {
+  state: GestureState;
+  config: typeof cursorConfigs[keyof typeof cursorConfigs];
+}
 
-  const updateTarget = useCallback(() => {
-    if (position) {
-      const isTransitioningToAction = 
-        prevStateRef.current === 'tracking' && (state === 'pinch' || state === 'scroll');
-      const isReturningToTracking = 
-        prevStateRef.current !== 'tracking' && state === 'tracking';
-
-      if (isTransitioningToAction) {
-        lockedPositionRef.current = { ...filteredTargetRef.current };
-      } else if (isReturningToTracking) {
-        lockedPositionRef.current = null;
-      }
-
-      prevStateRef.current = state;
-
-      let rawX: number, rawY: number;
-      if (lockedPositionRef.current && (state === 'pinch' || state === 'scroll')) {
-        rawX = lockedPositionRef.current.x;
-        rawY = lockedPositionRef.current.y;
-      } else {
-        const config = cursorConfigs[state];
-        rawX = position.x - config.size / 2;
-        rawY = position.y - config.size / 2;
-      }
-
-      const dx = rawX - lastInputRef.current.x;
-      const dy = rawY - lastInputRef.current.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < JITTER_THRESHOLD) {
-        targetRef.current = { ...filteredTargetRef.current };
-      } else {
-        filteredTargetRef.current = {
-          x: filteredTargetRef.current.x + (rawX - filteredTargetRef.current.x) * LOW_PASS_ALPHA,
-          y: filteredTargetRef.current.y + (rawY - filteredTargetRef.current.y) * LOW_PASS_ALPHA,
-        };
-        targetRef.current = { ...filteredTargetRef.current };
-      }
-
-      lastInputRef.current = { x: rawX, y: rawY };
-    }
-  }, [position, state]);
-
-  const animateRef = useRef<() => void>(() => {});
-  
-  const animate = useCallback(() => {
-    const el = elRef.current;
-    const target = targetRef.current;
-
-    if (el && target) {
-      const dx = target.x - posRef.current.x;
-      const dy = target.y - posRef.current.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance > DEAD_ZONE) {
-        velRef.current.x = velRef.current.x * VELOCITY_DECAY + dx * SMOOTHING;
-        velRef.current.y = velRef.current.y * VELOCITY_DECAY + dy * SMOOTHING;
-
-        posRef.current.x += velRef.current.x;
-        posRef.current.y += velRef.current.y;
-      }
-
-      el.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0)`;
-    }
-
-    if (isRunningRef.current) {
-      rafRef.current = requestAnimationFrame(animateRef.current);
-    }
-  }, []);
-
-  useEffect(() => {
-    animateRef.current = animate;
-  }, [animate]);
-
-  const setElRef = useCallback(
-    (el: HTMLDivElement | null) => {
-      elRef.current = el;
-      setCursorElement(el);
-
-      if (el && !isRunningRef.current) {
-        isRunningRef.current = true;
-
-        if (targetRef.current) {
-          posRef.current = { ...targetRef.current };
-        }
-
-        if (el) {
-          startHoverCheck();
-        }
-
-        rafRef.current = requestAnimationFrame(animateRef.current);
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    updateTarget();
-  }, [updateTarget]);
-
-  // 监听手势状态变化，处理捏合手势
-  useEffect(() => {
-    if (state === 'pinch' && prevStateRef.current !== 'pinch') {
-      handlePinchStart();
-    } else if (state !== 'pinch' && prevStateRef.current === 'pinch') {
-      handlePinchEnd();
-    }
-  }, [state]);
-
-  useEffect(() => {
-    return () => {
-      isRunningRef.current = false;
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
-      setCursorElement(null);
-      stopHoverCheck();
-    };
-  }, []);
-
-  if (state === 'idle' || !position) {
-    return null;
-  }
-
-  const config = cursorConfigs[state];
-
+const CursorVisual = memo(({ state, config }: CursorVisualProps) => {
   return (
     <motion.div
-      ref={setElRef}
-      className="gesture-cursor"
+      className="gesture-cursor-visual"
       data-state={state}
       initial={{ scale: 0, opacity: 0 }}
       animate={{
@@ -195,18 +58,16 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state })
         mass: 0.5,
       }}
       style={{
-        position: 'fixed',
-        pointerEvents: 'none',
-        zIndex: 9999,
-        left: 0,
-        top: 0,
+        width: config.size,
+        height: config.size,
         borderRadius: '50%',
         backgroundColor: config.primaryColor,
         boxShadow: `0 2px 8px ${config.primaryColor}40`,
-        willChange: 'transform',
+        position: 'relative',
+        willChange: 'transform, width, height, opacity',
       }}
     >
-      <motion.div
+      <div
         style={{
           position: 'absolute',
           top: 2,
@@ -254,4 +115,120 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state })
       )}
     </motion.div>
   );
-};
+});
+
+export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, state }) => {
+  const rafRef = useRef<number>(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const isRunningRef = useRef(false);
+  const positionRef = useRef(position);
+  const stateRef = useRef(state);
+  const lastPositionRef = useRef({ x: 0, y: 0 });
+  const lastTimeRef = useRef(0);
+
+  useEffect(() => {
+    positionRef.current = position;
+    stateRef.current = state;
+  });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const animate = (timestamp: number) => {
+      const currentPosition = positionRef.current;
+      const currentState = stateRef.current;
+
+      if (!currentPosition) {
+        if (isRunningRef.current) {
+          rafRef.current = requestAnimationFrame(animate);
+        }
+        return;
+      }
+
+      const config = cursorConfigs[currentState];
+      const targetX = currentPosition.x - config.size / 2;
+      const targetY = currentPosition.y - config.size / 2;
+
+      const dx = targetX - lastPositionRef.current.x;
+      const dy = targetY - lastPositionRef.current.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance > JITTER_THRESHOLD) {
+        lastPositionRef.current = { x: targetX, y: targetY };
+        container.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
+      }
+
+      lastTimeRef.current = timestamp;
+
+      if (isRunningRef.current) {
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    if (!isRunningRef.current) {
+      isRunningRef.current = true;
+      startHoverCheck();
+      rafRef.current = requestAnimationFrame(animate);
+    }
+
+    return () => {
+      isRunningRef.current = false;
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const prevState = state === 'pinch' ? 'tracking' : 'pinch';
+    if (state === 'pinch') {
+      handlePinchStart();
+    } else if (prevState === 'pinch') {
+      handlePinchEnd();
+    }
+  }, [state]);
+
+  useEffect(() => {
+    return () => {
+      isRunningRef.current = false;
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+      setCursorElement(null);
+      stopHoverCheck();
+    };
+  }, []);
+
+  const setContainerRef = (el: HTMLDivElement | null) => {
+    containerRef.current = el;
+    setCursorElement(el);
+  };
+
+  if (state === 'idle' || !position) {
+    return null;
+  }
+
+  const config = cursorConfigs[state];
+
+  return (
+    <div
+      ref={setContainerRef}
+      className="gesture-cursor-container"
+      style={{
+        position: 'fixed',
+        pointerEvents: 'none',
+        zIndex: 9999,
+        left: 0,
+        top: 0,
+        transition: 'transform 60ms ease-out',
+        willChange: 'transform',
+        contain: 'layout style paint',
+      }}
+    >
+      <CursorVisual state={state} config={config} />
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return prevProps.state === nextProps.state;
+});
