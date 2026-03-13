@@ -6,6 +6,7 @@ import zhCN from 'antd/locale/zh_CN';
 import { routes } from './routes';
 import './App.css';
 import './i18n';
+import './styles/book-card.css';
 
 const router = createBrowserRouter(routes);
 
