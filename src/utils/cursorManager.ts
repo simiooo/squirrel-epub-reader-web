@@ -19,6 +19,29 @@ export const setCursorTargetPosition = (x: number, y: number) => {
   cursorPosition = { x, y };
 };
 
+// 直接触发一次 hover 检测（供外部调用）
+export const checkHoverAtPosition = (x: number, y: number) => {
+  if (!cursorElement) return;
+  
+  // 临时隐藏光标以获得准确检测
+  if (cursorElement) {
+    cursorElement.style.visibility = 'hidden';
+  }
+  
+  const element = document.elementFromPoint(x, y);
+  
+  if (cursorElement) {
+    cursorElement.style.visibility = '';
+  }
+  
+  // 检测书籍卡片和按钮
+  const detectedCard = element?.closest('.book-card') as HTMLElement | null;
+  const detectedButton = element?.closest('[data-gesture-clickable], button, a, .ant-btn, .ant-btn-icon-only') as HTMLElement | null;
+  
+  // 直接应用 hover 状态，不需要连续帧验证
+  applyHoverState(detectedCard, detectedButton);
+};
+
 export const setCursorElement = (el: HTMLElement | null) => {
   cursorElement = el;
 };
