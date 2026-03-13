@@ -1,132 +1,171 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Modal, Card, List, Tag, Space, message, Spin, Tooltip, Empty, Tabs, Badge } from 'antd';
-import { CloudSyncOutlined, PlusOutlined, DeleteOutlined, EditOutlined, SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { cloudStorageManager } from '../services/cloudStorageManager';
-import { SandboxConnector } from '../services/sandboxConnector';
-import type { CloudStorageConnector } from '../types/cloudStorage';
+import { Button, Modal, Card, List, Tag, Space, message, Spin, Empty, Tabs, Badge, Form, Input } from 'antd';
+import { CloudSyncOutlined, PlusOutlined, DeleteOutlined, EditOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { getAllConnectors, addConnector, updateConnector, deleteConnector } from '../db';
+import type { ConnectorTypeInfo } from '../types/cloudStorage';
+import type { StoredConnector } from '../types';
+import { ConnectorConfigForm } from './cloud/ConnectorConfigForm';
 
 interface CloudStoragePanelProps {
   onSyncComplete?: () => void;
 }
 
+const PRESET_CONNECTORS: Array<{ type: string; name: string; typeInfo: ConnectorTypeInfo }> = [
+  {
+    type: 'dropbox',
+    name: 'Dropbox',
+    typeInfo: {
+      type: 'dropbox',
+      displayName: 'Dropbox',
+      description: 'cloudStorage.dropboxDesc',
+      authMethods: ['oauth2'],
+      requiredSettings: [
+        { key: 'appKey', label: 'App Key', type: 'text', required: true, placeholder: 'Your Dropbox App Key' },
+      ],
+      optionalSettings: [
+        { key: 'rootPath', label: 'Sync Path', type: 'text', required: false, placeholder: '/SquirrelReader' },
+      ],
+    },
+  },
+  {
+    type: 'googledrive',
+    name: 'Google Drive',
+    typeInfo: {
+      type: 'googledrive',
+      displayName: 'Google Drive',
+      description: 'cloudStorage.googleDriveDesc',
+      authMethods: ['oauth2'],
+      requiredSettings: [
+        { key: 'clientId', label: 'Client ID', type: 'text', required: true, placeholder: 'Your Google Client ID' },
+      ],
+      optionalSettings: [
+        { key: 'rootPath', label: 'Folder Name', type: 'text', required: false, placeholder: 'SquirrelReader' },
+      ],
+    },
+  },
+  {
+    type: 's3',
+    name: 'S3 Compatible',
+    typeInfo: {
+      type: 's3',
+      displayName: 'S3 Compatible',
+      description: 'cloudStorage.s3Desc',
+      authMethods: ['api_key'],
+      requiredSettings: [
+        { key: 'endpoint', label: 'Endpoint URL', type: 'url', required: true, placeholder: 'https://bucket-name.s3.region.backblaze.com or https://s3.region.amazonaws.com' },
+        { key: 'bucket', label: 'Bucket Name', type: 'text', required: true, placeholder: 'my-bucket' },
+        { key: 'accessKeyId', label: 'Access Key ID', type: 'text', required: true },
+        { key: 'secretAccessKey', label: 'Secret Access Key', type: 'password', required: true },
+      ],
+      optionalSettings: [
+        { key: 'region', label: 'Region', type: 'text', required: false, placeholder: 'us-east-1' },
+        { key: 'rootPath', label: 'Sync Path', type: 'text', required: false, placeholder: '/SquirrelReader' },
+        { key: 'forcePathStyle', label: 'Force Path-Style URL', type: 'boolean', required: false, description: 'Use path-style URL format (e.g., https://s3.amazonaws.com/bucket-name). Enable this if you encounter CORS issues.' },
+      ],
+    },
+  },
+];
+
 export const CloudStoragePanel: React.FC<CloudStoragePanelProps> = ({ onSyncComplete }) => {
   const { t } = useTranslation();
-  const [connectors, setConnectors] = useState<CloudStorageConnector[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState({ progress: 0, message: '' });
+  const [connectors, setConnectors] = useState<StoredConnector[]>([]);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isManageModalVisible, setIsManageModalVisible] = useState(false);
-  const [_selectedConnector, setSelectedConnector] = useState<CloudStorageConnector | null>(null);
+  const [isConfigModalVisible, setIsConfigModalVisible] = useState(false);
+  const [editingConnector, setEditingConnector] = useState<StoredConnector | null>(null);
+  const [selectedConnectorType, setSelectedConnectorType] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
-  // 监听连接器变化
   useEffect(() => {
-    const unsubscribe = cloudStorageManager.onConnectorsChange((updatedConnectors) => {
-      setConnectors(updatedConnectors);
-    });
-
-    // 初始加载
-    setConnectors(cloudStorageManager.getConnectors());
-
-    return () => unsubscribe();
+    loadConnectors();
   }, []);
 
-  // 监听全局同步状态
-  useEffect(() => {
-    const unsubscribe = cloudStorageManager.onGlobalSyncStatus((status) => {
-      setIsSyncing(status.syncing);
-      setSyncProgress({ progress: status.progress, message: status.message });
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // 同步所有连接器
-  const handleSyncAll = useCallback(async () => {
+  const loadConnectors = async () => {
+    setLoading(true);
     try {
-      setIsSyncing(true);
-      const results = await cloudStorageManager.syncAll({
-        syncBooks: true,
-        syncProgress: true,
-        syncBookmarks: true,
-        conflictStrategy: 'newest_wins',
-      });
-
-      let totalBooks = 0;
-      let totalProgress = 0;
-      let hasErrors = false;
-
-      results.forEach((result, connectorId) => {
-        if (result.success) {
-          totalBooks += result.booksUpdated;
-          totalProgress += result.progressUpdated;
-        } else {
-          hasErrors = true;
-          console.error(`Sync failed for ${connectorId}:`, result.errors);
-        }
-      });
-
-      if (hasErrors) {
-        message.warning(t('cloudStorage.syncPartialSuccess', { books: totalBooks, progress: totalProgress }));
-      } else {
-        message.success(t('cloudStorage.syncSuccess', { books: totalBooks, progress: totalProgress }));
-      }
-
-      onSyncComplete?.();
+      const storedConnectors = await getAllConnectors();
+      setConnectors(storedConnectors);
     } catch (error) {
-      message.error(t('cloudStorage.syncFailed'));
-      console.error('Sync error:', error);
+      console.error('Failed to load connectors:', error);
     } finally {
-      setIsSyncing(false);
+      setLoading(false);
     }
-  }, [onSyncComplete, t]);
+  };
 
-  // 同步单个连接器
-  const handleSyncConnector = useCallback(async (connector: CloudStorageConnector) => {
-    try {
-      message.loading({ content: t('cloudStorage.syncing', { name: connector.config.name }), key: 'sync' });
-      
-      const result = await cloudStorageManager.syncConnector(connector.config.id, {
-        syncBooks: true,
-        syncProgress: true,
-        syncBookmarks: true,
-      });
-
-      if (result.success) {
-        message.success({ 
-          content: t('cloudStorage.connectorSyncSuccess', { 
-            name: connector.config.name,
-            books: result.booksUpdated,
-            progress: result.progressUpdated 
-          }), 
-          key: 'sync' 
-        });
-        onSyncComplete?.();
-      } else {
-        message.error({ content: t('cloudStorage.connectorSyncFailed'), key: 'sync' });
-      }
-    } catch {
-      message.error({ content: t('cloudStorage.connectorSyncFailed'), key: 'sync' });
-    }
-  }, [onSyncComplete, t]);
-
-  // 删除连接器
-  const handleDeleteConnector = useCallback((connector: CloudStorageConnector) => {
+  const handleDeleteConnector = useCallback((connector: StoredConnector) => {
     Modal.confirm({
       title: t('cloudStorage.deleteConfirmTitle'),
-      content: t('cloudStorage.deleteConfirmContent', { name: connector.config.name }),
+      content: t('cloudStorage.deleteConfirmContent', { name: connector.name }),
       okText: t('common.delete'),
       okType: 'danger',
       cancelText: t('common.cancel'),
-      onOk: () => {
-        cloudStorageManager.unregisterConnector(connector.config.id);
-        message.success(t('cloudStorage.connectorDeleted'));
+      onOk: async () => {
+        try {
+          await deleteConnector(connector.id);
+          message.success(t('cloudStorage.connectorDeleted'));
+          await loadConnectors();
+          onSyncComplete?.();
+        } catch (error) {
+          message.error(t('common.error'));
+          console.error('Failed to delete connector:', error);
+        }
       },
     });
-  }, [t]);
+  }, [t, onSyncComplete]);
 
-  // 获取认证状态标签
-  const getAuthStatusTag = (status: string) => {
+  const handleAddPresetConnector = useCallback((type: string) => {
+    const preset = PRESET_CONNECTORS.find(p => p.type === type);
+    if (preset) {
+      setSelectedConnectorType(type);
+      setEditingConnector(null);
+      setIsAddModalVisible(false); // 关闭添加连接器modal
+      setIsConfigModalVisible(true);
+    }
+  }, []);
+
+  const handleEditConnector = useCallback((connector: StoredConnector) => {
+    setEditingConnector(connector);
+    setSelectedConnectorType(connector.type);
+    setIsConfigModalVisible(true);
+  }, []);
+
+  const handleSaveConnector = useCallback(async (connectorData: Omit<StoredConnector, 'id' | 'createdAt'>) => {
+    try {
+      if (editingConnector) {
+        // 更新现有连接器
+        const updated: StoredConnector = {
+          ...editingConnector,
+          ...connectorData,
+          id: editingConnector.id,
+          createdAt: editingConnector.createdAt,
+        };
+        await updateConnector(updated);
+        setConnectors(prev => prev.map(c => c.id === editingConnector.id ? updated : c));
+        message.success(t('common.success'));
+      } else {
+        // 添加新连接器
+        const newConnector: StoredConnector = {
+          ...connectorData,
+          id: `${connectorData.type}-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+        };
+        await addConnector(newConnector);
+        setConnectors(prev => [...prev, newConnector]);
+        message.success(t('cloudStorage.connectorAdded'));
+      }
+      
+      setIsConfigModalVisible(false);
+      setEditingConnector(null);
+      setSelectedConnectorType('');
+      await loadConnectors();
+    } catch (error) {
+      message.error(t('common.error'));
+      console.error('Failed to save connector:', error);
+    }
+  }, [editingConnector, t]);
+
+  const getAuthStatusTag = (status: string | undefined) => {
     switch (status) {
       case 'authenticated':
         return <Tag color="success" icon={<CheckCircleOutlined />}>{t('cloudStorage.authenticated')}</Tag>;
@@ -141,84 +180,69 @@ export const CloudStoragePanel: React.FC<CloudStoragePanelProps> = ({ onSyncComp
     }
   };
 
-  // 渲染连接器列表项
-  const renderConnectorItem = (connector: CloudStorageConnector) => (
-    <List.Item
-      actions={[
-        <Tooltip title={t('cloudStorage.sync')}>
+  const getConnectorTypeInfo = (type: string): ConnectorTypeInfo | undefined => {
+    return PRESET_CONNECTORS.find(p => p.type === type)?.typeInfo;
+  };
+
+  const renderConnectorItem = (connector: StoredConnector) => {
+    const typeInfo = getConnectorTypeInfo(connector.type);
+
+    return (
+      <List.Item
+        actions={[
           <Button
-            type="text"
-            icon={<SyncOutlined />}
-            onClick={() => handleSyncConnector(connector)}
-            loading={isSyncing}
-          />
-        </Tooltip>,
-        <Tooltip title={t('cloudStorage.edit')}>
-          <Button
+            key="edit"
             type="text"
             icon={<EditOutlined />}
-            onClick={() => {
-              setSelectedConnector(connector);
-              setIsManageModalVisible(true);
-            }}
-          />
-        </Tooltip>,
-        <Tooltip title={t('common.delete')}>
+            onClick={() => handleEditConnector(connector)}
+          >
+            {t('cloudStorage.edit')}
+          </Button>,
           <Button
+            key="delete"
             type="text"
             danger
             icon={<DeleteOutlined />}
             onClick={() => handleDeleteConnector(connector)}
-          />
-        </Tooltip>,
-      ]}
-    >
-      <List.Item.Meta
-        avatar={<CloudSyncOutlined style={{ fontSize: 32, color: '#1890ff' }} />}
-        title={
-          <Space>
-            <span>{connector.config.name}</span>
-            {getAuthStatusTag(connector.getAuthStatus())}
-            {connector.config.autoSync && (
-              <Tag color="blue">{t('cloudStorage.autoSync')}</Tag>
-            )}
-          </Space>
-        }
-        description={
-          <Space direction="vertical" size={0}>
-            <span>{t('cloudStorage.type')}: {connector.displayName}</span>
-            {connector.config.lastSyncAt && (
-              <span>{t('cloudStorage.lastSync')}: {connector.config.lastSyncAt.toLocaleString()}</span>
-            )}
-          </Space>
-        }
-      />
-    </List.Item>
-  );
+          >
+            {t('common.delete')}
+          </Button>,
+        ]}
+      >
+        <List.Item.Meta
+          avatar={<CloudSyncOutlined style={{ fontSize: 32, color: '#1890ff' }} />}
+          title={
+            <Space>
+              <span>{connector.name}</span>
+              {getAuthStatusTag(connector.authStatus)}
+            </Space>
+          }
+          description={
+            <Space direction="vertical" size={0}>
+              <span>{typeInfo?.displayName || connector.type}</span>
+              {connector.lastSyncAt && (
+                <span style={{ fontSize: 12, color: '#999' }}>
+                  {t('cloudStorage.lastSync')}: {new Date(connector.lastSyncAt).toLocaleString()}
+                </span>
+              )}
+            </Space>
+          }
+        />
+      </List.Item>
+    );
+  };
 
   return (
     <>
-      <Space>
-        <Badge count={connectors.length} showZero>
-          <Button
-            icon={<CloudSyncOutlined />}
-            onClick={() => setIsManageModalVisible(true)}
-          >
-            {t('cloudStorage.manage')}
-          </Button>
-        </Badge>
+      <Badge count={connectors.length} showZero>
         <Button
-          type="primary"
-          icon={<SyncOutlined spin={isSyncing} />}
-          onClick={handleSyncAll}
-          loading={isSyncing}
-          disabled={connectors.length === 0}
+          icon={<CloudSyncOutlined />}
+          onClick={() => setIsManageModalVisible(true)}
         >
-          {isSyncing ? `${Math.round(syncProgress.progress)}%` : t('cloudStorage.syncAll')}
+          {t('cloudStorage.manage')}
         </Button>
-      </Space>
+      </Badge>
 
-      {/* 管理连接器模态框 */}
       <Modal
         title={t('cloudStorage.manageConnectors')}
         open={isManageModalVisible}
@@ -230,101 +254,31 @@ export const CloudStoragePanel: React.FC<CloudStoragePanelProps> = ({ onSyncComp
         ]}
         width={700}
       >
-        {connectors.length > 0 ? (
-          <List
-            dataSource={connectors}
-            renderItem={renderConnectorItem}
-            bordered
-          />
-        ) : (
-          <Empty
-            description={t('cloudStorage.noConnectors')}
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
-        )}
+        <Spin spinning={loading}>
+          {connectors.length > 0 ? (
+            <List
+              dataSource={connectors}
+              renderItem={renderConnectorItem}
+              bordered
+            />
+          ) : (
+            <Empty
+              description={t('cloudStorage.noConnectors')}
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          )}
+        </Spin>
       </Modal>
 
-      {/* 添加连接器模态框 */}
-      <AddConnectorModal
-        visible={isAddModalVisible}
+      <Modal
+        title={t('cloudStorage.addConnector')}
+        open={isAddModalVisible}
         onCancel={() => setIsAddModalVisible(false)}
-        onSuccess={() => {
-          setIsAddModalVisible(false);
-          message.success(t('cloudStorage.connectorAdded'));
-        }}
-      />
-    </>
-  );
-};
-
-// 添加连接器模态框组件
-interface AddConnectorModalProps {
-  visible: boolean;
-  onCancel: () => void;
-  onSuccess: () => void;
-}
-
-const AddConnectorModal: React.FC<AddConnectorModalProps> = ({ visible, onCancel, onSuccess }) => {
-  const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('preset');
-  const [isLoading, setIsLoading] = useState(false);
-
-  // 预置连接器类型
-  const presetConnectors = [
-    { type: 'dropbox', name: 'Dropbox', description: t('cloudStorage.dropboxDesc') },
-    { type: 'googledrive', name: 'Google Drive', description: t('cloudStorage.googleDriveDesc') },
-    { type: 'onedrive', name: 'OneDrive', description: t('cloudStorage.oneDriveDesc') },
-    { type: 's3', name: 'S3 Compatible', description: t('cloudStorage.s3Desc') },
-  ];
-
-  // 添加预置连接器
-  const handleAddPresetConnector = useCallback(async (type: string) => {
-    setIsLoading(true);
-    try {
-      // 这里会打开对应的连接器配置界面
-      // 实际实现中需要根据不同的类型显示不同的配置表单
-      message.info(t('cloudStorage.configuring', { type }));
-      onSuccess();
-    } finally {
-      setIsLoading(false);
-    }
-  }, [onSuccess, t]);
-
-  // 添加自定义连接器
-  const handleAddCustomConnector = useCallback(async (code: string, config: Record<string, unknown>) => {
-    setIsLoading(true);
-    try {
-      const connectorConfig = cloudStorageManager.createConnectorConfig(
-        'custom',
-        config.name as string,
-        config
-      );
-
-      const sandboxConnector = new SandboxConnector(connectorConfig, code);
-      await sandboxConnector.initialize();
-
-      cloudStorageManager.registerConnector(sandboxConnector);
-      onSuccess();
-    } catch (error) {
-      message.error(t('cloudStorage.customConnectorFailed'));
-      console.error('Custom connector error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [onSuccess, t]);
-
-  return (
-    <Modal
-      title={t('cloudStorage.addConnector')}
-      open={visible}
-      onCancel={onCancel}
-      footer={null}
-      width={800}
-    >
-      <Spin spinning={isLoading}>
+        footer={null}
+        width={800}
+        zIndex={1100}
+      >
         <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
           items={[
             {
               key: 'preset',
@@ -332,7 +286,7 @@ const AddConnectorModal: React.FC<AddConnectorModalProps> = ({ visible, onCancel
               children: (
                 <List
                   grid={{ gutter: 16, column: 2 }}
-                  dataSource={presetConnectors}
+                  dataSource={PRESET_CONNECTORS}
                   renderItem={(item) => (
                     <List.Item>
                       <Card
@@ -340,7 +294,7 @@ const AddConnectorModal: React.FC<AddConnectorModalProps> = ({ visible, onCancel
                         onClick={() => handleAddPresetConnector(item.type)}
                         title={item.name}
                       >
-                        {item.description}
+                        {t(item.typeInfo.description)}
                       </Card>
                     </List.Item>
                   )}
@@ -350,35 +304,39 @@ const AddConnectorModal: React.FC<AddConnectorModalProps> = ({ visible, onCancel
             {
               key: 'custom',
               label: t('cloudStorage.customConnector'),
-              children: (
-                <CustomConnectorForm onSubmit={handleAddCustomConnector} />
-              ),
+              children: <CustomConnectorForm onSubmit={handleSaveConnector} />,
             },
           ]}
         />
-      </Spin>
-    </Modal>
+      </Modal>
+
+      <ConnectorConfigForm
+        visible={isConfigModalVisible}
+        connectorType={selectedConnectorType}
+        connectorTypeInfo={getConnectorTypeInfo(selectedConnectorType)}
+        editingConnector={editingConnector}
+        onSubmit={handleSaveConnector}
+        onCancel={() => {
+          setIsConfigModalVisible(false);
+          setEditingConnector(null);
+          setSelectedConnectorType('');
+        }}
+      />
+    </>
   );
 };
 
-// 自定义连接器表单
 interface CustomConnectorFormProps {
-  onSubmit: (code: string, config: Record<string, unknown>) => void;
+  onSubmit: (connector: Omit<StoredConnector, 'id' | 'createdAt'>) => Promise<void>;
 }
 
 const CustomConnectorForm: React.FC<CustomConnectorFormProps> = ({ onSubmit }) => {
   const { t } = useTranslation();
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
+  const [form] = Form.useForm();
   const [isValidating, setIsValidating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  // 验证代码
-  const validateCode = useCallback(() => {
-    setIsValidating(true);
-    setValidationErrors([]);
-
-    // 简单的代码验证
+  const validateCode = (code: string) => {
     const errors: string[] = [];
     
     if (!code.includes('class')) {
@@ -397,46 +355,59 @@ const CustomConnectorForm: React.FC<CustomConnectorFormProps> = ({ onSubmit }) =
       }
     }
 
-    setValidationErrors(errors);
-    setIsValidating(false);
-    return errors.length === 0;
-  }, [code, t]);
+    return errors;
+  };
 
-  const handleSubmit = () => {
-    if (validateCode()) {
-      onSubmit(code, { name });
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      setIsValidating(true);
+      setValidationErrors([]);
+
+      const errors = validateCode(values.code);
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        setIsValidating(false);
+        return;
+      }
+
+      await onSubmit({
+        name: values.name,
+        type: 'custom',
+        settings: { code: values.code },
+        autoSync: false,
+        authStatus: 'unauthenticated',
+      });
+      
+      form.resetFields();
+    } catch (error) {
+      console.error('Form validation failed:', error);
+    } finally {
+      setIsValidating(false);
     }
   };
 
   return (
-    <div>
-      <div style={{ marginBottom: 16 }}>
-        <label>{t('cloudStorage.connectorName')}</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t('cloudStorage.namePlaceholder')}
-          style={{ width: '100%', padding: 8, marginTop: 8 }}
-        />
-      </div>
+    <Form form={form} layout="vertical">
+      <Form.Item
+        name="name"
+        label={t('cloudStorage.connectorName')}
+        rules={[{ required: true, message: t('cloudStorage.validation.nameRequired') }]}
+      >
+        <Input placeholder={t('cloudStorage.namePlaceholder')} />
+      </Form.Item>
       
-      <div style={{ marginBottom: 16 }}>
-        <label>{t('cloudStorage.connectorCode')}</label>
-        <textarea
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
+      <Form.Item
+        name="code"
+        label={t('cloudStorage.connectorCode')}
+        rules={[{ required: true, message: t('cloudStorage.validation.codeRequired') }]}
+      >
+        <Input.TextArea
           placeholder={t('cloudStorage.codePlaceholder')}
-          style={{ 
-            width: '100%', 
-            height: 300, 
-            padding: 8, 
-            marginTop: 8,
-            fontFamily: 'monospace',
-            fontSize: 12,
-          }}
+          rows={10}
+          style={{ fontFamily: 'monospace', fontSize: 12 }}
         />
-      </div>
+      </Form.Item>
 
       {validationErrors.length > 0 && (
         <div style={{ color: '#ff4d4f', marginBottom: 16 }}>
@@ -449,15 +420,16 @@ const CustomConnectorForm: React.FC<CustomConnectorFormProps> = ({ onSubmit }) =
         </div>
       )}
 
-      <Button
-        type="primary"
-        onClick={handleSubmit}
-        disabled={!name || !code || validationErrors.length > 0}
-        loading={isValidating}
-      >
-        {t('cloudStorage.addConnector')}
-      </Button>
-    </div>
+      <Form.Item>
+        <Button
+          type="primary"
+          onClick={handleSubmit}
+          loading={isValidating}
+        >
+          {t('cloudStorage.addConnector')}
+        </Button>
+      </Form.Item>
+    </Form>
   );
 };
 

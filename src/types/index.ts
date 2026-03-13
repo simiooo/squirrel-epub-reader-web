@@ -63,3 +63,57 @@ export interface EpubImage {
   blob: Blob;
   mimeType: string;
 }
+
+export interface StoredConnector {
+  id: string;
+  name: string;
+  type: string;
+  settings: Record<string, unknown>;
+  autoSync: boolean;
+  syncInterval?: number;
+  lastSyncAt?: string;
+  createdAt: string;
+  authStatus?: string;
+  authToken?: string;
+  refreshToken?: string;
+  tokenExpiresAt?: string;
+}
+
+export interface StoredCloudBook {
+  id: string;
+  bookId: string;
+  connectorId: string;
+  remotePath: string;
+  size: number;
+  checksum: string;
+  remoteModifiedAt: string;
+  localModifiedAt?: string;
+  syncStatus: string;
+  version: number;
+  metadata: BookMetadata;
+  cover?: string;
+  cached?: boolean;
+  cachedAt?: string;
+}
+
+export interface SyncRecord {
+  id: string;
+  bookId: string;
+  connectorId: string;
+  action: 'upload' | 'download' | 'delete';
+  status: 'pending' | 'completed' | 'failed' | 'conflict';
+  timestamp: string;
+  conflictData?: unknown;
+  errorMessage?: string;
+}
+
+export interface ConflictInfo {
+  bookId: string;
+  connectorId: string;
+  localChecksum: string;
+  remoteChecksum: string;
+  localModifiedAt: Date;
+  remoteModifiedAt: Date;
+  localSize: number;
+  remoteSize: number;
+}

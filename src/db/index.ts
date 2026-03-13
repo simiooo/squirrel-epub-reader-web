@@ -1,19 +1,25 @@
 import Dexie, { type Table } from 'dexie';
-import type { Book, ReadingProgress, Bookmark } from '../types';
+import type { Book, ReadingProgress, Bookmark, StoredConnector, StoredCloudBook, SyncRecord } from '../types';
 
 export class EpubDatabase extends Dexie {
   books!: Table<Book, string>;
   progress!: Table<ReadingProgress, string>;
   bookmarks!: Table<Bookmark, string>;
   modelCache!: Table<{ key: string; data: Blob; mimeType: string; cachedAt: number }, string>;
+  connectors!: Table<StoredConnector, string>;
+  cloudBooks!: Table<StoredCloudBook, string>;
+  syncRecords!: Table<SyncRecord, string>;
 
   constructor() {
     super('EpubReaderDB');
-    this.version(2).stores({
+    this.version(3).stores({
       books: 'id, &metadata.identifier, addedAt',
       progress: 'bookId',
       bookmarks: 'id, bookId, chapterId, createdAt',
       modelCache: 'key',
+      connectors: 'id, type, createdAt',
+      cloudBooks: 'id, bookId, connectorId, &remotePath, syncStatus, cachedAt',
+      syncRecords: 'id, bookId, connectorId, status, timestamp',
     });
   }
 }
@@ -118,4 +124,89 @@ export async function loadCachedModel(key: string, url: string): Promise<string>
   await cacheModel(key, blob, blob.type);
   
   return URL.createObjectURL(blob);
+}
+
+// ==================== Connector Operations ====================
+
+export async function addConnector(connector: StoredConnector): Promise<string> {
+  const id = await db.connectors.add(connector);
+  return id as string;
+}
+
+export async function getConnector(id: string): Promise<StoredConnector | undefined> {
+  return db.connectors.get(id);
+}
+
+export async function getAllConnectors(): Promise<StoredConnector[]> {
+  return db.connectors.toArray();
+}
+
+export async function updateConnector(connector: StoredConnector): Promise<void> {
+  await db.connectors.put(connector);
+}
+
+export async function deleteConnector(id: string): Promise<void> {
+  await db.transaction('rw', db.connectors, db.cloudBooks, db.syncRecords, async () => {
+    await db.connectors.delete(id);
+    await db.cloudBooks.where('connectorId').equals(id).delete();
+    await db.syncRecords.where('connectorId').equals(id).delete();
+  });
+}
+
+// ==================== Cloud Book Operations ====================
+
+export async function addCloudBook(cloudBook: StoredCloudBook): Promise<string> {
+  const id = await db.cloudBooks.add(cloudBook);
+  return id as string;
+}
+
+export async function getCloudBook(id: string): Promise<StoredCloudBook | undefined> {
+  return db.cloudBooks.get(id);
+}
+
+export async function getCloudBooksByConnector(connectorId: string): Promise<StoredCloudBook[]> {
+  return db.cloudBooks.where('connectorId').equals(connectorId).toArray();
+}
+
+export async function getAllCloudBooks(): Promise<StoredCloudBook[]> {
+  return db.cloudBooks.toArray();
+}
+
+export async function updateCloudBook(cloudBook: StoredCloudBook): Promise<void> {
+  await db.cloudBooks.put(cloudBook);
+}
+
+export async function deleteCloudBook(id: string): Promise<void> {
+  await db.cloudBooks.delete(id);
+}
+
+export async function findCloudBookByChecksum(checksum: string): Promise<StoredCloudBook | undefined> {
+  return db.cloudBooks.where('checksum').equals(checksum).first();
+}
+
+export async function findCloudBookByBookId(bookId: string): Promise<StoredCloudBook | undefined> {
+  return db.cloudBooks.where('bookId').equals(bookId).first();
+}
+
+// ==================== Sync Record Operations ====================
+
+export async function addSyncRecord(record: SyncRecord): Promise<string> {
+  const id = await db.syncRecords.add(record);
+  return id as string;
+}
+
+export async function getSyncRecordsByBook(bookId: string): Promise<SyncRecord[]> {
+  return db.syncRecords.where('bookId').equals(bookId).sortBy('timestamp');
+}
+
+export async function getPendingSyncRecords(): Promise<SyncRecord[]> {
+  return db.syncRecords.where('status').equals('pending').toArray();
+}
+
+export async function updateSyncRecord(record: SyncRecord): Promise<void> {
+  await db.syncRecords.put(record);
+}
+
+export async function deleteSyncRecord(id: string): Promise<void> {
+  await db.syncRecords.delete(id);
 }
