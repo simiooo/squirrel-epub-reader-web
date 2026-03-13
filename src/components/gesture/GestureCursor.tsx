@@ -117,6 +117,8 @@ const CursorVisual = memo(({ state, config }: CursorVisualProps) => {
   );
 });
 
+const HOVER_CHECK_INTERVAL = 50; // 20fps 足够检测 hover，减少性能开销
+
 export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, state }) => {
   const rafRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -124,6 +126,7 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
   const positionRef = useRef(position);
   const stateRef = useRef(state);
   const lastPositionRef = useRef({ x: 0, y: 0 });
+  const lastHoverCheckRef = useRef(0);
 
   useEffect(() => {
     positionRef.current = position;
@@ -150,8 +153,12 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
           container.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
         }
 
-        // 每帧都进行 hover 检测
-        checkHoverAtPosition(currentPosition.x, currentPosition.y);
+        // 节流 hover 检测到 20fps，减少性能开销
+        const now = performance.now();
+        if (now - lastHoverCheckRef.current >= HOVER_CHECK_INTERVAL) {
+          lastHoverCheckRef.current = now;
+          checkHoverAtPosition(currentPosition.x, currentPosition.y);
+        }
       }
 
       if (isRunningRef.current) {

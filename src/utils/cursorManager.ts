@@ -7,6 +7,11 @@ let pinchStartTime: number | null = null;
 let isPinching = false;
 let cursorPosition: { x: number; y: number } | null = null;
 
+// 缓存优化
+let lastCheckedElement: Element | null = null;
+let lastCheckedPosition = { x: 0, y: 0 };
+const POSITION_THRESHOLD = 5; // 位置变化阈值，小于此值不重新检测
+
 // 连续帧验证
 let pendingCard: HTMLElement | null = null;
 let pendingButton: HTMLElement | null = null;
@@ -22,18 +27,45 @@ export const setCursorTargetPosition = (x: number, y: number) => {
 // 直接触发一次 hover 检测（供外部调用）
 export const checkHoverAtPosition = (x: number, y: number) => {
   if (!cursorElement) return;
-  
-  // 临时隐藏光标以获得准确检测
+
+  // 位置变化检查：如果移动距离小于阈值，复用上一次的结果
+  const dx = x - lastCheckedPosition.x;
+  const dy = y - lastCheckedPosition.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  if (distance < POSITION_THRESHOLD && lastCheckedElement) {
+    // 位置变化很小，复用缓存的结果
+    return;
+  }
+
+  // 更新最后检查的位置
+  lastCheckedPosition = { x, y };
+
+  // 批量 DOM 操作：先隐藏光标
   cursorElement.style.visibility = 'hidden';
-  
+
+  // 强制同步布局读取
   const element = document.elementFromPoint(x, y);
-  
-  cursorElement.style.visibility = '';
-  
+
+  // 延迟恢复 visibility，避免 layout thrashing
+  requestAnimationFrame(() => {
+    if (cursorElement) {
+      cursorElement.style.visibility = '';
+    }
+  });
+
+  // 缓存检测结果
+  lastCheckedElement = element;
+
+  // 提前返回：如果元素未变化，跳过 DOM 遍历
+  if (element === lastCheckedElement && distance < POSITION_THRESHOLD * 2) {
+    return;
+  }
+
   // 检测书籍卡片和按钮
   const detectedCard = element?.closest('.book-card') as HTMLElement | null;
   const detectedButton = element?.closest('[data-gesture-clickable], button, a, .ant-btn, .ant-btn-icon-only') as HTMLElement | null;
-  
+
   // 直接应用 hover 状态，不需要连续帧验证
   applyHoverState(detectedCard, detectedButton);
 };
@@ -77,13 +109,16 @@ const getElementAtCursor = (x: number, y: number): Element | null => {
   if (cursorElement) {
     cursorElement.style.visibility = 'hidden';
   }
-  
+
   const element = document.elementFromPoint(x, y);
-  
-  if (cursorElement) {
-    cursorElement.style.visibility = '';
-  }
-  
+
+  // 延迟恢复 visibility，避免 layout thrashing
+  requestAnimationFrame(() => {
+    if (cursorElement) {
+      cursorElement.style.visibility = '';
+    }
+  });
+
   return element;
 };
 
@@ -177,12 +212,16 @@ export const stopHoverCheck = () => {
     cancelAnimationFrame(hoverCheckRafId);
     hoverCheckRafId = null;
   }
-  
+
   // 重置状态
   pendingCard = null;
   pendingButton = null;
   confirmationFrames = 0;
-  
+
+  // 重置缓存
+  lastCheckedElement = null;
+  lastCheckedPosition = { x: 0, y: 0 };
+
   // 清理hover状态
   if (lastHoveredCard) {
     lastHoveredCard.classList.remove('gesture-hover');
@@ -192,7 +231,7 @@ export const stopHoverCheck = () => {
     lastHoveredButton.classList.remove('gesture-button-hover');
     lastHoveredButton = null;
   }
-  
+
   isHoveringClickable = false;
 };
 
