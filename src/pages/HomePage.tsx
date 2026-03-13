@@ -8,8 +8,8 @@ import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { SettingsButton } from '../components/SettingsButton';
 import { GestureOverlay } from '../components/gesture/GestureOverlay';
 import { CloudBookList } from '../components/cloud/CloudBookList';
-import { getAllConnectors, getAllCloudBooks } from '../db';
-import { refreshCloudBooks } from '../services/bookSyncService';
+import { getAllConnectors, getAllCloudBooks, deleteCloudBook } from '../db';
+import { refreshCloudBooks, getConnectorInstance } from '../services/bookSyncService';
 import type { StoredConnector, StoredCloudBook } from '../types';
 
 const { Title } = Typography;
@@ -85,10 +85,28 @@ export const HomePage: React.FC = () => {
     }
   }, []);
 
-  const handleDeleteCloudBook = useCallback(async (_cloudBook: StoredCloudBook) => {
-    // TODO: 实现删除逻辑，需要从云端删除
-    console.log('Delete cloud book:', _cloudBook);
-  }, []);
+  const handleDeleteCloudBook = useCallback(async (cloudBook: StoredCloudBook, connector: StoredConnector) => {
+    try {
+      // 先删除远程存储中的文件
+      const connectorInstance = getConnectorInstance(connector);
+      if (connectorInstance) {
+        await connectorInstance.deleteBook(cloudBook.remotePath);
+      }
+      
+      // 再删除本地云端记录
+      await deleteCloudBook(cloudBook.id);
+      
+      // 刷新列表
+      setRefreshTrigger(prev => prev + 1);
+      
+      message.success(t('cloudStorage.cloudBooks.deleteSuccess'));
+    } catch (error) {
+      console.error('Failed to delete cloud book:', error);
+      message.error(t('cloudStorage.cloudBooks.deleteFailed', { 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      }));
+    }
+  }, [t]);
 
   const handleRefreshConnector = useCallback(async (connector: StoredConnector) => {
     setRefreshingConnector(connector.id);
@@ -140,7 +158,7 @@ export const HomePage: React.FC = () => {
         <Title level={4} style={{ marginBottom: 16 }}>
           {t('book.import')}
         </Title>
-        <BookList refreshTrigger={refreshTrigger} />
+        <BookList refreshTrigger={refreshTrigger} onSyncSuccess={handleSyncComplete} />
       </div>
 
       {/* 云端书架分类 */}
@@ -195,7 +213,6 @@ export const HomePage: React.FC = () => {
                   ) : (
                     <CloudBookList
                       connectorId={connector.id}
-                      connectorName={connector.name}
                       connector={connector}
                       onDownload={handleDownloadCloudBook}
                       onDelete={handleDeleteCloudBook}

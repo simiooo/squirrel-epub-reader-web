@@ -3,16 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import {
-  Card,
   List,
   Button,
-  Progress,
   Empty,
   message,
   Popconfirm,
-  Badge,
   Tag,
-  Tooltip,
+  Progress,
 } from 'antd';
 import {
   DeleteOutlined,
@@ -27,9 +24,10 @@ import { SyncToCloudModal } from './cloud/SyncToCloudModal';
 
 interface BookListProps {
   refreshTrigger?: number;
+  onSyncSuccess?: () => void;
 }
 
-export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
+export const BookList: React.FC<BookListProps> = ({ refreshTrigger, onSyncSuccess }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [books, setBooks] = useState<Book[]>([]);
@@ -47,9 +45,6 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
         getAllBooks(),
         getAllConnectors(),
       ]);
-      
-      console.log('BookList - All connectors:', allConnectors);
-      console.log('BookList - Authenticated connectors:', allConnectors.filter(c => c.authStatus === 'authenticated'));
       
       setBooks(allBooks);
       setConnectors(allConnectors.filter(c => c.authStatus === 'authenticated'));
@@ -102,7 +97,8 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
     }
     setSyncModalVisible(false);
     setSelectedBook(null);
-  }, [selectedBook]);
+    onSyncSuccess?.();
+  }, [selectedBook, onSyncSuccess]);
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'zh-CN', {
@@ -129,11 +125,11 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
       <List
         grid={{
           gutter: 16,
-          xs: 1,
-          sm: 2,
-          md: 3,
-          lg: 4,
-          xl: 5,
+          xs: 2,
+          sm: 3,
+          md: 4,
+          lg: 5,
+          xl: 6,
         }}
         dataSource={books}
         loading={loading}
@@ -144,142 +140,126 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger }) => {
           
           return (
             <List.Item>
-              <Badge.Ribbon
-                text={progressPercent > 0 ? `${Math.round(progressPercent)}%` : t('book.notRead')}
-                color={progressPercent > 0 ? (progressPercent >= 100 ? 'green' : 'blue') : 'default'}
-              >
-                <Card
-                  hoverable
-                  data-gesture-clickable
-                  onClick={() => navigate(`/read/${book.id}`)}
-                  cover={
-                    book.cover ? (
-                      <div style={{
-                        height: 220,
-                        overflow: 'hidden',
-                        position: 'relative',
-                      }}>
-                        <img
-                          alt={book.metadata.title}
-                          src={book.cover}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            borderTopLeftRadius: 8,
-                            borderTopRightRadius: 8,
-                          }}
+              <div className="book-card book-card-compact">
+                {/* 封面区域 */}
+                {book.cover ? (
+                  <div className="book-card-cover" onClick={() => navigate(`/read/${book.id}`)}>
+                    <img alt={book.metadata.title} src={book.cover} />
+                    
+                    {/* 进度条 - 顶部 */}
+                    {progressPercent > 0 && (
+                      <div className="book-card-progress">
+                        <Progress
+                          percent={Math.round(progressPercent)}
+                          size="small"
+                          showInfo={false}
+                          status={progressPercent >= 100 ? 'success' : 'active'}
                         />
                       </div>
-                    ) : (
-                      <div
-                        style={{
-                          height: 220,
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderTopLeftRadius: 8,
-                          borderTopRightRadius: 8,
-                        }}
-                      >
-                        <BookOutlined style={{ fontSize: 48, color: 'rgba(255, 255, 255, 0.8)', marginBottom: 12 }} />
-                        <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12 }}>{t('book.noCover')}</span>
+                    )}
+                    
+                    {/* 已同步标签 */}
+                    {isSynced && (
+                      <div className="book-card-status">
+                        <Tag color="success"><CheckCircleOutlined /></Tag>
                       </div>
-                    )
-                  }
-                  actions={[
-                    <Tooltip title={t('book.read')}>
+                    )}
+                  </div>
+                ) : (
+                  <div className="book-card-no-cover" onClick={() => navigate(`/read/${book.id}`)}>
+                    <BookOutlined />
+                    <span>{t('book.noCover')}</span>
+                    
+                    {/* 进度条 - 顶部 */}
+                    {progressPercent > 0 && (
+                      <div className="book-card-progress">
+                        <Progress
+                          percent={Math.round(progressPercent)}
+                          size="small"
+                          showInfo={false}
+                          status={progressPercent >= 100 ? 'success' : 'active'}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* 已同步标签 */}
+                    {isSynced && (
+                      <div className="book-card-status">
+                        <Tag color="success"><CheckCircleOutlined /></Tag>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* 悬浮信息层 */}
+                <div className="book-card-overlay">
+                  <div className="book-card-info">
+                    <div className="book-card-title">{book.metadata.title}</div>
+                    <div className="book-card-author">{book.metadata.author}</div>
+                    <div className="book-card-meta">
+                      <span>{formatDate(book.addedAt)}</span>
+                      {progressPercent > 0 && (
+                        <>
+                          <span>·</span>
+                          <span>{Math.round(progressPercent)}%</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* 操作按钮 - 悬浮时显示 */}
+                  <div className="book-card-actions">
+                    <Button
+                      type="primary"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/read/${book.id}`);
+                      }}
+                    >
+                      {t('book.read')}
+                    </Button>
+                    
+                    {hasConnectors && (
                       <Button
-                        key="read"
-                        type="text"
-                        icon={<EyeOutlined />}
+                        type="primary"
+                        size="small"
+                        icon={isSynced ? <CheckCircleOutlined /> : <CloudUploadOutlined />}
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/read/${book.id}`);
-                        }}
-                      />
-                    </Tooltip>,
-                    ...(hasConnectors ? [
-                      <Tooltip key="sync" title={isSynced ? t('cloudStorage.cloudBooks.syncStatus.synced') : t('cloudStorage.syncToCloud.title')}>
-                        <Button
-                          type="text"
-                          icon={isSynced ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <CloudUploadOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          if (!isSynced) {
                             handleSyncToCloud(book);
-                          }}
-                          disabled={isSynced}
-                        />
-                      </Tooltip>
-                    ] : []),
-                    <Tooltip title={t('common.delete')}>
-                      <Popconfirm
-                        key="delete"
-                        title={t('book.deleteConfirm')}
-                        description={t('book.deleteConfirmDesc')}
-                        onConfirm={(e) => {
-                          e?.stopPropagation();
-                          handleDelete(book.id);
+                          }
                         }}
-                        okText={t('common.delete')}
-                        cancelText={t('common.cancel')}
+                        disabled={isSynced}
+                        style={isSynced ? { background: 'rgba(82, 196, 26, 0.7)' } : undefined}
                       >
-                        <Button type="text" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()} />
-                      </Popconfirm>
-                    </Tooltip>,
-                  ]}
-                >
-                  <Card.Meta
-                    title={
-                      <div
-                        style={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                        }}
-                      >
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {book.metadata.title}
-                        </span>
-                        {isSynced && (
-                          <Tag color="success" style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                            <CheckCircleOutlined /> {t('cloudStorage.cloudBooks.syncStatus.synced')}
-                          </Tag>
-                        )}
-                      </div>
-                    }
-                    description={
-                      <div>
-                        <div
-                          style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            marginBottom: 8,
-                          }}
-                        >
-                          {t('book.author')}：{book.metadata.author}
-                        </div>
-                        {progressPercent > 0 && (
-                          <Progress
-                            percent={Math.round(progressPercent)}
-                            size="small"
-                            status={progressPercent >= 100 ? 'success' : 'active'}
-                          />
-                        )}
-                        <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                          {t('book.addedAt')} {formatDate(book.addedAt)}
-                        </div>
-                      </div>
-                    }
-                  />
-                </Card>
-              </Badge.Ribbon>
+                        {isSynced ? t('cloudStorage.cloudBooks.syncStatus.synced') : t('cloudStorage.sync')}
+                      </Button>
+                    )}
+                    
+                    <Popconfirm
+                      title={t('book.deleteConfirm')}
+                      description={t('book.deleteConfirmDesc')}
+                      onConfirm={(e) => {
+                        e?.stopPropagation();
+                        handleDelete(book.id);
+                      }}
+                      okText={t('common.delete')}
+                      cancelText={t('common.cancel')}
+                    >
+                      <Button 
+                        type="primary" 
+                        size="small" 
+                        danger 
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </Popconfirm>
+                  </div>
+                </div>
+              </div>
             </List.Item>
           );
         }}

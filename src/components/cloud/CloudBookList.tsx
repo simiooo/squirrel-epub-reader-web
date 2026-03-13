@@ -1,26 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { List, Empty, Spin, message, Typography, Space, Tag } from 'antd';
-import { CloudOutlined, SyncOutlined } from '@ant-design/icons';
+import { List, Empty, Spin, message } from 'antd';
 import { getCloudBooksByConnector } from '../../db';
 import type { StoredCloudBook, StoredConnector } from '../../types';
 import { CloudBookCard } from './CloudBookCard';
 
-const { Title } = Typography;
-
 interface CloudBookListProps {
   connectorId: string;
-  connectorName: string;
   connector: StoredConnector;
   onDownload: (cloudBook: StoredCloudBook, connector: StoredConnector) => Promise<void>;
-  onDelete?: (cloudBook: StoredCloudBook) => void;
+  onDelete?: (cloudBook: StoredCloudBook, connector: StoredConnector) => void;
   cachedBookIds?: Set<string>;
   downloadingIds?: Set<string>;
 }
 
 export const CloudBookList: React.FC<CloudBookListProps> = ({
   connectorId,
-  connectorName,
   connector,
   onDownload,
   onDelete,
@@ -30,7 +25,6 @@ export const CloudBookList: React.FC<CloudBookListProps> = ({
   const { t } = useTranslation();
   const [cloudBooks, setCloudBooks] = useState<StoredCloudBook[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   const loadCloudBooks = useCallback(async () => {
     setLoading(true);
@@ -49,16 +43,6 @@ export const CloudBookList: React.FC<CloudBookListProps> = ({
     loadCloudBooks();
   }, [loadCloudBooks]);
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      // TODO: 实现从云端刷新书籍列表
-      await loadCloudBooks();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [loadCloudBooks]);
-
   const handleDownload = useCallback(async (cloudBook: StoredCloudBook) => {
     try {
       await onDownload(cloudBook, connector);
@@ -69,6 +53,10 @@ export const CloudBookList: React.FC<CloudBookListProps> = ({
       }));
     }
   }, [onDownload, connector, t]);
+
+  const handleDelete = useCallback((cloudBook: StoredCloudBook) => {
+    onDelete?.(cloudBook, connector);
+  }, [onDelete, connector]);
 
   if (loading) {
     return (
@@ -89,30 +77,14 @@ export const CloudBookList: React.FC<CloudBookListProps> = ({
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={4} style={{ margin: 0 }}>
-          <Space>
-            <CloudOutlined />
-            {connectorName}
-            <Tag color="blue">{cloudBooks.length}</Tag>
-          </Space>
-        </Title>
-        <Space>
-          <Tag onClick={handleRefresh} style={{ cursor: refreshing ? 'wait' : 'pointer' }}>
-            {refreshing ? <SyncOutlined spin /> : <SyncOutlined />}
-            {' '}{t('cloudStorage.sync')}
-          </Tag>
-        </Space>
-      </div>
-
       <List
         grid={{
-          gutter: 24,
-          xs: 1,
-          sm: 2,
-          md: 3,
-          lg: 4,
-          xl: 5,
+          gutter: 16,
+          xs: 2,
+          sm: 3,
+          md: 4,
+          lg: 5,
+          xl: 6,
         }}
         dataSource={cloudBooks}
         renderItem={(cloudBook) => (
@@ -123,7 +95,7 @@ export const CloudBookList: React.FC<CloudBookListProps> = ({
               isCached={cachedBookIds.has(cloudBook.bookId)}
               isDownloading={downloadingIds.has(cloudBook.id)}
               onDownload={handleDownload}
-              onDelete={onDelete}
+              onDelete={handleDelete}
             />
           </List.Item>
         )}
