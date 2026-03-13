@@ -139,7 +139,10 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
       const currentPosition = positionRef.current;
       const currentState = stateRef.current;
 
+      console.log('[GestureCursor] animate tick, currentPosition:', currentPosition);
+
       if (!currentPosition) {
+        console.log('[GestureCursor] No current position, skipping');
         if (isRunningRef.current) {
           rafRef.current = requestAnimationFrame(animate);
         }
@@ -154,12 +157,16 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
       const dy = targetY - lastPositionRef.current.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
+      console.log('[GestureCursor] Distance:', distance, 'JITTER_THRESHOLD:', JITTER_THRESHOLD);
+
       if (distance > JITTER_THRESHOLD) {
+        console.log('[GestureCursor] Moving cursor to:', targetX, targetY);
         lastPositionRef.current = { x: targetX, y: targetY };
         container.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
       }
 
       // 每帧都进行 hover 检测，确保即使光标不动也能触发 hover
+      console.log('[GestureCursor] Calling checkHoverAtPosition at:', currentPosition.x, currentPosition.y);
       checkHoverAtPosition(currentPosition.x, currentPosition.y);
 
       lastTimeRef.current = timestamp;
@@ -203,6 +210,7 @@ export const GestureCursor: React.FC<GestureCursorProps> = memo(({ position, sta
   }, []);
 
   const setContainerRef = (el: HTMLDivElement | null) => {
+    console.log('[GestureCursor] setContainerRef called, el:', !!el);
     containerRef.current = el;
     setCursorElement(el);
   };
