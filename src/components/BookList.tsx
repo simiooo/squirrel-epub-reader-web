@@ -213,6 +213,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger, onSyncSucces
                       type="primary"
                       size="small"
                       icon={<EyeOutlined />}
+                      data-gesture-clickable="true"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/read/${book.id}`);
@@ -226,6 +227,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger, onSyncSucces
                         type="primary"
                         size="small"
                         icon={isSynced ? <CheckCircleOutlined /> : <CloudUploadOutlined />}
+                        data-gesture-clickable="true"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!isSynced) {
@@ -254,6 +256,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger, onSyncSucces
                         size="small" 
                         danger 
                         icon={<DeleteOutlined />}
+                        data-gesture-clickable="true"
                         onClick={(e) => e.stopPropagation()}
                       />
                     </Popconfirm>

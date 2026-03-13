@@ -172,3 +172,68 @@
 .book-card-compact:hover .book-card-overlay {
   opacity: 1;
 }
+
+/* ==================== 手势识别支持 ==================== */
+
+/* 手势hover状态 - 与:hover相同的视觉效果 */
+.book-card.gesture-hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
+}
+
+.book-card.gesture-hover .book-card-cover img {
+  transform: scale(1.05);
+}
+
+.book-card.gesture-hover .book-card-overlay {
+  opacity: 1;
+}
+
+.book-card.gesture-hover .book-card-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 按钮手势hover效果 */
+.book-card-actions .ant-btn.gesture-button-hover,
+.book-card-actions .ant-btn.gesture-hover {
+  background: rgba(255, 255, 255, 0.35) !important;
+  transform: scale(1.05);
+}
+
+.book-card-actions .ant-btn-dangerous.gesture-button-hover,
+.book-card-actions .ant-btn-dangerous.gesture-hover {
+  background: rgba(255, 77, 79, 0.5) !important;
+}
+
+/* 手势点击反馈 */
+.book-card-actions .ant-btn.gesture-clicked {
+  animation: gesture-click-feedback 0.2s ease;
+}
+
+@keyframes gesture-click-feedback {
+  0% {
+    transform: scale(1.05);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+
+/* 手势光标捏合状态 */
+.gesture-cursor.pinching {
+  transform: scale(0.8) !important;
+}
+
+/* 确保卡片内的按钮可以通过手势点击 */
+.book-card [data-gesture-clickable] {
+  cursor: pointer;
+}
+
+/* 手势hover时按钮的额外强调 */
+.book-card.gesture-hover .book-card-actions .ant-btn {
+  transition: all 0.2s ease;
+}

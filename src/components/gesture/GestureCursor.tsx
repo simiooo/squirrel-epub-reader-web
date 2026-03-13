@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import type { GestureState } from '../../stores/gestureStore';
-import { setCursorElement, startHoverCheck, stopHoverCheck } from '../../utils/cursorManager';
+import { setCursorElement, startHoverCheck, stopHoverCheck, handlePinchStart, handlePinchEnd } from '../../utils/cursorManager';
 
 interface GestureCursorProps {
   position: { x: number; y: number } | null;
@@ -148,6 +148,15 @@ export const GestureCursor: React.FC<GestureCursorProps> = ({ position, state })
   useEffect(() => {
     updateTarget();
   }, [updateTarget]);
+
+  // 监听手势状态变化，处理捏合手势
+  useEffect(() => {
+    if (state === 'pinch' && prevStateRef.current !== 'pinch') {
+      handlePinchStart();
+    } else if (state !== 'pinch' && prevStateRef.current === 'pinch') {
+      handlePinchEnd();
+    }
+  }, [state]);
 
   useEffect(() => {
     return () => {

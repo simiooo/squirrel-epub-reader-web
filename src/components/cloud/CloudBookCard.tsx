@@ -158,6 +158,7 @@ export const CloudBookCard: React.FC<CloudBookCardProps> = ({
               type="primary"
               size="small"
               icon={<CloudDownloadOutlined />}
+              data-gesture-clickable="true"
               onClick={(e) => {
                 e.stopPropagation();
                 handleDownload();
@@ -184,6 +185,7 @@ export const CloudBookCard: React.FC<CloudBookCardProps> = ({
                 size="small" 
                 danger 
                 icon={<DeleteOutlined />}
+                data-gesture-clickable="true"
                 onClick={(e) => e.stopPropagation()}
               />
             </Popconfirm>

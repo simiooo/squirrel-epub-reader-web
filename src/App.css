@@ -684,3 +684,83 @@ body {
 html, body, #root {
   height: 100%;
 }
+
+/* ==================== GESTURE HOVER STYLES ==================== */
+/* 全局手势悬停样式 - 适用于所有可交互元素 */
+
+/* 基础按钮和链接的手势hover效果 */
+button.gesture-hover,
+a.gesture-hover,
+.gesture-hover button,
+.gesture-hover a,
+.ant-btn.gesture-hover,
+.ant-btn.gesture-button-hover,
+[data-gesture-clickable].gesture-hover {
+  opacity: 0.85;
+  transform: scale(1.02);
+  transition: all 0.15s ease;
+}
+
+/* Ant Design 按钮的特殊处理 */
+.ant-btn-primary.gesture-hover,
+.ant-btn-primary.gesture-button-hover {
+  filter: brightness(1.1);
+}
+
+.ant-btn-dangerous.gesture-hover,
+.ant-btn-dangerous.gesture-button-hover {
+  filter: brightness(1.15);
+}
+
+/* 链接的手势hover效果 */
+a.gesture-hover,
+a.gesture-button-hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 菜单项的手势hover */
+.ant-menu-item.gesture-hover {
+  background-color: var(--antd-color-bg-text-hover, rgba(0, 0, 0, 0.04));
+}
+
+/* 列表项的手势hover */
+.ant-list-item.gesture-hover {
+  background-color: var(--antd-color-bg-text-hover, rgba(0, 0, 0, 0.04));
+}
+
+/* 卡片的手势hover（除了book-card已在book-card.css中定义） */
+.ant-card.gesture-hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+/* 手势点击时的视觉反馈 */
+.gesture-clicked {
+  animation: gesture-click-pulse 0.2s ease;
+}
+
+@keyframes gesture-click-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 确保所有可点击元素都能被手势检测到 */
+button,
+a,
+[role="button"],
+[role="link"] {
+  cursor: pointer;
+}
+
+/* 手势光标悬停在可点击元素上时的样式变化 */
+.gesture-cursor[data-hovering="true"] {
+  transform: scale(1.2);
+}
