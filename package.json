@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run generate-icons && tsc -b && vite build",
+    "build": "npm run download-resources && npm run generate-icons && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate-icons": "node scripts/generate-icons.js"
+    "generate-icons": "node scripts/generate-icons.js",
+    "download-model": "node scripts/download-mediapipe-model.js",
+    "download-wasm": "node scripts/download-mediapipe-wasm.js",
+    "download-resources": "npm run download-model && npm run download-wasm"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

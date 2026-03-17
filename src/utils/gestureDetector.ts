@@ -27,7 +27,10 @@ export const isFingerExtended = (landmarks: Point[] | Landmark[], fingerIndex: n
   const pip = getLandmarkPosition(landmarks, FINGER_PIP_INDICES[fingerIndex]);
   
   if (fingerIndex === 0) {
-    return tip.x !== pip.x || Math.abs(tip.y - pip.y) > 0.1;
+    // 拇指：比较指尖(4)与食指根部(5)的距离来判断是否伸展
+    const indexMcp = getLandmarkPosition(landmarks, 5);
+    const distance = calculateDistance(tip, indexMcp);
+    return distance > 0.15;
   }
   
   return tip.y < pip.y;
@@ -48,21 +51,31 @@ export const detectGesture = (landmarks: Point[] | Landmark[], sensitivity: numb
     return 'pinch';
   }
 
-  const allFingersExtended = [
-    isFingerExtended(landmarks, 1),
-    isFingerExtended(landmarks, 2),
-    isFingerExtended(landmarks, 3),
-    isFingerExtended(landmarks, 4),
-  ].every(Boolean);
-
+  const indexExtended = isFingerExtended(landmarks, 1);
+  const middleExtended = isFingerExtended(landmarks, 2);
+  const ringExtended = isFingerExtended(landmarks, 3);
+  const pinkyExtended = isFingerExtended(landmarks, 4);
   const thumbExtended = isFingerExtended(landmarks, 0);
+
   const fingersExtendedCount = [
     thumbExtended,
-    isFingerExtended(landmarks, 1),
-    isFingerExtended(landmarks, 2),
-    isFingerExtended(landmarks, 3),
-    isFingerExtended(landmarks, 4),
+    indexExtended,
+    middleExtended,
+    ringExtended,
+    pinkyExtended,
   ].filter(Boolean).length;
+
+  // 和平手势：食指和中指树立，拇指、无名指、小指收起
+  if (indexExtended && middleExtended && !thumbExtended && !ringExtended && !pinkyExtended) {
+    return 'peace';
+  }
+
+  const allFingersExtended = [
+    indexExtended,
+    middleExtended,
+    ringExtended,
+    pinkyExtended,
+  ].every(Boolean);
 
   if (fingersExtendedCount >= 4 && allFingersExtended) {
     return 'open';

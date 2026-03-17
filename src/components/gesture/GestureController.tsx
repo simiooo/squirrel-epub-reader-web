@@ -21,6 +21,72 @@ const SCROLL_THROTTLE_MS = 16;
 const MAX_SCROLL_DELTA = 50;
 const MIN_SCROLL_DELTA = 0.5;
 const SCROLL_SMOOTHING = 0.3;
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 1000;
+
+// WASM URLs
+const REMOTE_WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm';
+const LOCAL_WASM_URL = '/wasm';
+
+// Model URLs
+const REMOTE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+const LOCAL_MODEL_URL = '/models/hand_landmarker.task';
+
+// Check if local resource exists
+const checkLocalResource = async (url: string): Promise<boolean> => {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+// Initialize vision with retry logic
+const initializeVision = async (retryCount = 0, signal?: AbortSignal): Promise<ReturnType<typeof FilesetResolver.forVisionTasks>> => {
+  // Try local first, then remote
+  const urls = [
+    LOCAL_WASM_URL,
+    REMOTE_WASM_URL
+  ];
+  
+  for (const url of urls) {
+    try {
+      if (signal?.aborted) {
+        throw new Error('Initialization aborted');
+      }
+      
+      console.log(`[Gesture] Trying WASM from: ${url}`);
+      const vision = await FilesetResolver.forVisionTasks(url);
+      console.log(`[Gesture] WASM loaded successfully from: ${url}`);
+      return vision;
+    } catch (error) {
+      console.warn(`[Gesture] Failed to load WASM from ${url}:`, error);
+      
+      // If this is the last URL and we have retries left, try again
+      if (url === urls[urls.length - 1] && retryCount < MAX_RETRY_ATTEMPTS) {
+        console.log(`[Gesture] Retrying WASM initialization (${retryCount + 1}/${MAX_RETRY_ATTEMPTS})...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        return initializeVision(retryCount + 1, signal);
+      }
+    }
+  }
+  
+  throw new Error('Failed to initialize WASM from all sources');
+};
+
+// Get model URL with fallback
+const getModelUrl = async (): Promise<string> => {
+  // Check local first
+  const hasLocalModel = await checkLocalResource(LOCAL_MODEL_URL);
+  if (hasLocalModel) {
+    console.log('[Gesture] Using local model');
+    return LOCAL_MODEL_URL;
+  }
+  
+  console.log('[Gesture] Using remote CDN model');
+  return REMOTE_MODEL_URL;
+};
 
 export interface GestureControllerRef {
   cleanup: () => void;
@@ -117,6 +183,8 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
 
     let cancelled = false;
 
+    const abortController = new AbortController();
+
     const initialize = async () => {
       try {
         console.log('[Gesture] Initializing...');
@@ -128,23 +196,75 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
           throw new Error('Video element not found');
         }
 
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-        );
+        // Initialize WASM with retry logic
+        const vision = await initializeVision(0, abortController.signal);
 
-        if (cancelled) return;
+        if (cancelled || abortController.signal.aborted) return;
 
-        const handLandmarker = await HandLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-            delegate: 'GPU',
-          },
-          runningMode: 'VIDEO',
-          numHands: 1,
-          minHandDetectionConfidence: 0.7,
-          minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        });
+        // Get model URL (local first, then remote)
+        const modelUrl = await getModelUrl();
+
+        if (cancelled || abortController.signal.aborted) return;
+
+        // Try to create hand landmarker with retry logic for model loading
+        let handLandmarker: HandLandmarker | null = null;
+        let lastError: Error | null = null;
+        
+        for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+          if (cancelled || abortController.signal.aborted) return;
+          
+          try {
+            if (attempt > 0) {
+              console.log(`[Gesture] Retrying model loading (${attempt}/${MAX_RETRY_ATTEMPTS})...`);
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            }
+            
+            handLandmarker = await HandLandmarker.createFromOptions(vision, {
+              baseOptions: {
+                modelAssetPath: modelUrl,
+                delegate: 'GPU',
+              },
+              runningMode: 'VIDEO',
+              numHands: 1,
+              minHandDetectionConfidence: 0.7,
+              minHandPresenceConfidence: 0.5,
+              minTrackingConfidence: 0.5,
+            });
+            
+            // Success!
+            break;
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            console.warn(`[Gesture] Model loading attempt ${attempt + 1} failed:`, lastError.message);
+            
+            // If model URL failed, try the other one
+            if (attempt === 0 && modelUrl === LOCAL_MODEL_URL) {
+              console.log('[Gesture] Local model failed, trying remote CDN...');
+              // Continue with same attempt count but different URL
+              try {
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                  baseOptions: {
+                    modelAssetPath: REMOTE_MODEL_URL,
+                    delegate: 'GPU',
+                  },
+                  runningMode: 'VIDEO',
+                  numHands: 1,
+                  minHandDetectionConfidence: 0.7,
+                  minHandPresenceConfidence: 0.5,
+                  minTrackingConfidence: 0.5,
+                });
+                console.log('[Gesture] Remote CDN model loaded successfully');
+                break;
+              } catch (remoteError) {
+                console.warn('[Gesture] Remote model also failed:', remoteError);
+              }
+            }
+          }
+        }
+        
+        if (!handLandmarker) {
+          throw lastError || new Error('Failed to initialize hand landmarker after all retries');
+        }
 
         if (cancelled) {
           handLandmarker.close();
@@ -241,7 +361,7 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
                         console.log('[Gesture] Pinch triggered at', position);
                         onPinchRef.current?.();
                       }
-                    } else if (gesture === 'fist') {
+                    } else if (gesture === 'peace') {
                       if (prevPositionsRef.current.length >= 2) {
                         const now = performance.now();
                         const timeSinceLastScroll = now - lastScrollTimeRef.current;
@@ -327,6 +447,7 @@ export const GestureController = forwardRef<GestureControllerRef, GestureControl
 
     return () => {
       cancelled = true;
+      abortController.abort();
       cleanup();
     };
   }, [enabled, cleanup, setGestureState, setInitializing, setError, updateRuntimeState]);

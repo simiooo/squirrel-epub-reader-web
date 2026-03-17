@@ -26,3 +26,7 @@ dev-dist
 
 # EPUB test files
 *.epub
+
+# Downloaded AI models and WASM files (auto-downloaded during build)
+public/models/
+public/wasm/
