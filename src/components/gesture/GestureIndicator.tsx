@@ -51,7 +51,7 @@ export const GestureIndicator: React.FC<GestureIndicatorProps> = ({ onClick }) =
       case 'pinch':
         return '🤏';
       case 'scroll':
-        return '✊';
+        return '✌️';
       default:
         return t('gesture.off') || '手势关闭';
     }

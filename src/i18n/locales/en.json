@@ -66,7 +66,7 @@
     "instructions": "Gesture Instructions",
     "openPalm": "Open Palm → Move Cursor",
     "pinch": "Pinch Thumb & Index → Click",
-    "fist": "Fist + Move Up/Down → Scroll",
+    "fist": "Index & Middle Fingers Up, Others Down + Move → Scroll",
     "on": "On",
     "off": "Off"
   },

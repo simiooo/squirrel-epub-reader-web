@@ -109,7 +109,7 @@ export const GestureSettings: React.FC<GestureSettingsProps> = ({ open, onClose 
                   {t('gesture.pinch')}
                 </Text>
                 <Text>
-                  <span style={{ marginRight: 8 }}>✊</span>
+                  <span style={{ marginRight: 8 }}>✌️</span>
                   {t('gesture.fist')}
                 </Text>
               </Space>
