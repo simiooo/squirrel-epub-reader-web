@@ -349,8 +349,11 @@
 }
 
 /* The em element acts as footnote content - styled like Ant Design Typography.Text type="secondary" */
+/* Apply to all em siblings after sup, not just the immediate next one */
 .chapter-content sup:has(a) + em,
-.chapter-content sup + em {
+.chapter-content sup + em,
+.chapter-content sup:has(a) ~ em,
+.chapter-content sup ~ em {
   display: inline;
   margin-left: 0;
   padding-left: var(--antd-padding-xs, 8px);
@@ -522,6 +525,34 @@
   background-color: transparent;
   padding: 0;
   border-radius: 0;
+}
+
+/* ==================== CODE BLOCKS: Multi-line tt ==================== */
+/* When tt contains br tags (multi-line code), style as GitHub-like code block */
+.chapter-content tt:has(br) {
+  display: block;
+  background-color: var(--antd-color-fill-secondary, #f6f8fa);
+  border: 1px solid var(--antd-color-border-secondary, #d0d7de);
+  border-radius: var(--antd-border-radius, 6px);
+  padding: var(--antd-padding, 16px);
+  margin: var(--antd-margin, 1em) 0;
+  overflow-x: auto;
+  font-size: calc(var(--antd-font-size, 14px) * 0.85);
+  line-height: 1.6;
+  color: var(--antd-color-text, #24292f);
+}
+
+/* Ensure the span inside block-level tt displays correctly */
+.chapter-content tt:has(br) span {
+  display: block;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: var(--antd-font-family-code, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace);
+}
+
+/* Hide br tags visually since we're using pre-wrap */
+.chapter-content tt:has(br) br {
+  display: none;
 }
 
 .chapter-content pre code {

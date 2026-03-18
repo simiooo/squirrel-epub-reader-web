@@ -28,6 +28,8 @@ import { useGestureStore } from '../stores/gestureStore';
 import { epubParser } from '../utils/epubParser';
 import { createImageManager, ImageResourceManager } from '../utils/imageManager';
 import { saveProgress, getProgress } from '../db';
+import { processCodeBlocks } from '../utils/codeHighlighter';
+import 'highlight.js/styles/github.css';
 import type { Book, ParsedChapter, ReadingProgress, Chapter } from '../types';
 
 // Utility function to check if URL is external
@@ -263,10 +265,14 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
       }
     });
 
+    // Process code blocks for syntax highlighting
+    let processedContent = doc.body.innerHTML;
+    processedContent = processCodeBlocks(processedContent);
+
     // Return chapter with processed content
     return {
       ...chapter,
-      content: doc.body.innerHTML,
+      content: processedContent,
     };
   }, [chapters, currentChapterIndex, imageManager]);
 
