@@ -1,200 +1,113 @@
-# Squirrel EPUB Reader
+# 松鼠 EPUB 阅读器 (Squirrel EPUB Reader)
 
-A beautiful and feature-rich EPUB reader application with cloud storage synchronization support.
+在线访问：https://squirrel-epub-reader-web.vercel.app
 
-## Features
+一个优雅的 EPUB 电子书阅读器，支持云端同步，让你可以随时随地享受阅读。
 
-- 📚 **EPUB Reading**: Support for EPUB format e-books
-- ☁️ **Cloud Sync**: Synchronize books, reading progress, and bookmarks across devices
-- 📱 **Responsive Design**: Works on desktop and mobile devices
-- 🌐 **Multi-language**: Internationalization support
-- 🔖 **Bookmarks**: Save and manage bookmarks
-- 📊 **Reading Progress**: Track reading progress across sessions
-- 🎨 **Beautiful UI**: Modern interface with dark/light mode support
+## 功能特点
 
-## Cloud Storage Support
+### 核心功能
+- 📚 **EPUB 阅读**：支持 EPUB 格式电子书阅读
+- ☁️ **云端同步**：支持 S3 兼容存储，同步书籍、阅读进度和书签
+- 📱 **响应式设计**：适配桌面端和移动端设备
+- 🌐 **多语言**：支持中文和英文界面
 
-Squirrel Reader supports multiple cloud storage providers via S3-compatible APIs:
+### 阅读体验
+- 🔖 **书签管理**：轻松保存和管理阅读书签
+- 📊 **阅读进度**：跨会话自动同步阅读进度
+- ✌️ **手势操作**：支持捏合缩放、滑动翻页等手势控制
+- 🎨 **美观界面**：现代设计，支持亮色/暗色主题
 
-### Supported Providers
+### 云存储支持
 
-- **AWS S3**
-- **Cloudflare R2**
-- **Backblaze B2**
-- **Alibaba Cloud OSS**
-- **Tencent Cloud COS**
-- **MinIO**
-- Any other S3-compatible storage service
+支持多种 S3 兼容存储服务：
 
-### Cloud Storage Configuration
+| 存储服务 | 配置说明 |
+|---------|---------|
+| AWS S3 | 标准 S3 配置 |
+| Cloudflare R2 | 推荐使用 Path-Style 访问 |
+| Backblaze B2 | 需要配置 CORS |
+| 阿里云 OSS | 标准 S3 兼容 |
+| 腾讯云 COS | 标准 S3 兼容 |
+| MinIO | 自建对象存储 |
 
-#### General S3-Compatible Storage
+详细配置请参考下方云存储配置指南。
 
-| Setting | Description | Example |
-|---------|-------------|---------|
-| **Endpoint** | S3 service endpoint URL | `https://s3.us-west-2.amazonaws.com` |
-| **Bucket** | Storage bucket name | `my-books` |
-| **Region** | Service region (optional) | `us-west-2` |
-| **Access Key ID** | Your access key | `AKIA...` |
-| **Secret Access Key** | Your secret key | `...` |
-| **Force Path-Style** | Use path-style URLs (see below) | Depends on provider |
-| **Root Path** | Base directory for app data | `/SquirrelReader` |
+## 快速开始
 
-#### Provider-Specific Guidelines
+### 在线使用
 
-**Cloudflare R2**
+直接访问：https://squirrel-epub-reader-web.vercel.app
 
-```
-Endpoint: https://<account-id>.r2.cloudflarestorage.com
-Bucket: <your-bucket-name>
-Region: auto (or leave empty)
-Access Key ID: <your-access-key>
-Secret Access Key: <your-secret-key>
-Force Path-Style: ✅ Recommended (to avoid CORS issues)
-```
+### 本地开发
 
-**Backblaze B2**
+```bash
+# 安装依赖
+pnpm install
 
-```
-Endpoint: https://s3.<region>.backblazeb2.com
-Bucket: <your-bucket-name>
-Region: <region> (e.g., us-west-004)
-Access Key ID: <your-key-id>
-Secret Access Key: <your-application-key>
-Force Path-Style: ✅ Required
+# 启动开发服务器
+pnpm dev
+
+# 构建生产版本
+pnpm build
 ```
 
-**AWS S3**
-
-```
-Endpoint: https://s3.<region>.amazonaws.com
-Bucket: <your-bucket-name>
-Region: <region> (e.g., us-east-1)
-Access Key ID: <your-access-key>
-Secret Access Key: <your-secret-key>
-Force Path-Style: ❌ Not needed
-```
-
-### CORS Configuration
-
-#### Backblaze B2
-
-If you encounter CORS errors with Backblaze B2, configure CORS in your bucket settings:
-
-1. Log in to Backblaze B2 Console
-2. Go to your bucket → **Bucket Settings**
-3. Add CORS Rule:
-   - **Allowed Origins**: `http://localhost:5173` (for development)
-   - **Allowed Methods**: `GET`, `PUT`, `POST`, `DELETE`, `HEAD`
-   - **Allowed Headers**: `authorization`, `x-amz-date`, `x-amz-content-sha256`, `content-type`
-   - **Max Age**: `3600`
-
-#### Cloudflare R2
-
-Cloudflare R2 typically works without additional CORS configuration. If you encounter issues:
-
-1. Use **Path-Style URLs** (enable "Force Path-Style")
-2. Or configure CORS in R2 bucket settings (if needed)
-
-#### AWS S3
-
-Configure CORS via AWS Console or CLI:
-
-```json
-{
-  "CORSRules": [
-    {
-      "AllowedOrigins": ["http://localhost:5173"],
-      "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-      "AllowedHeaders": ["*"],
-      "MaxAgeSeconds": 3600
-    }
-  ]
-}
-```
-
-### Troubleshooting
-
-**CORS Errors**
-
-1. Enable "Force Path-Style URL" option
-2. Check CORS configuration on your storage provider
-3. Clear browser cache and retry
-4. For development, use path-style URLs to avoid subdomain CORS issues
-
-**Connection Failed**
-
-1. Verify endpoint URL format
-2. Check Access Key and Secret Key
-3. Ensure bucket exists and is accessible
-4. Verify the key has read/write permissions for the bucket
-
-**Region Auto-Detection**
-
-The app automatically detects region from the endpoint URL:
-- `s3.us-west-2.amazonaws.com` → `us-west-2`
-- `s3.us-west-004.backblazeb2.com` → `us-west-004`
-- `xxx.r2.cloudflarestorage.com` → `auto`
-
-You can override this by manually entering the region.
-
-## Development
-
-### Prerequisites
+### 环境要求
 
 - Node.js 18+
 - pnpm
 
-### Setup
+## 技术栈
 
-```bash
-# Install dependencies
-pnpm install
+- **前端框架**：React + TypeScript + Vite
+- **UI 组件库**：Ant Design
+- **状态管理**：Zustand
+- **本地存储**：IndexedDB (Dexie.js)
+- **云端存储**：S3-compatible API
+- **国际化**：i18next
+- **构建工具**：R性llow (Vite 6+)
 
-# Start development server
-pnpm dev
+## 云存储配置指南
 
-# Build for production
-pnpm build
+### 通用 S3 配置项
 
-# Run linter
-pnpm lint
-```
+| 配置项 | 说明 | 示例 |
+|-------|------|-----|
+| **Endpoint** | S3 服务地址 | `https://s3.us-west-2.amazonaws.com` |
+| **Bucket** | 存储桶名称 | `my-books` |
+| **Region** | 服务区域 | `us-west-2` |
+| **Access Key ID** | 访问密钥 | `AKIA...` |
+| **Secret Access Key** | 秘密密钥 | `...` |
+| **Force Path-Style** | 强制 Path-Style 访问 | 根据提供商选择 |
+| **Root Path** | 应用数据根目录 | `/SquirrelReader` |
 
-### Project Structure
+### 常见问题排查
+
+**CORS 错误**
+1. 启用 "Force Path-Style URL" 选项
+2. 检查存储提供商的 CORS 配置
+3. 清除浏览器缓存后重试
+
+**连接失败**
+1. 验证 Endpoint URL 格式
+2. 检查 Access Key 和 Secret Key
+3. 确保存储桶存在且可访问
+
+## 项目结构
 
 ```
 src/
-├── components/          # React components
-│   ├── cloud/          # Cloud storage components
-│   └── ...
-├── services/           # Business logic
-│   ├── connectors/     # Cloud storage connectors
-│   └── ...
-├── db/                 # Database (IndexedDB)
-├── types/              # TypeScript types
-└── ...
+├── components/          # React 组件
+│   ├── cloud/           # 云存储相关组件
+│   └── gesture/         # 手势操作组件
+├── pages/               # 页面组件
+├── stores/              # 状态管理
+├── utils/               # 工具函数
+├── db/                  # 数据库操作
+├── types/               # TypeScript 类型定义
+└── i18n/                # 国际化配置
 ```
-
-## Tech Stack
-
-- **Framework**: React + TypeScript + Vite
-- **UI Library**: Ant Design
-- **State Management**: React Context + Hooks
-- **Storage**: IndexedDB (local) + S3-compatible (cloud)
-- **Internationalization**: i18next
-- **Build**: Rolldown (Vite 6+)
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Acknowledgments
-
-- Built with [Vite](https://vitejs.dev/)
-- UI components from [Ant Design](https://ant.design/)
-- EPUB parsing with [epub.js](https://github.com/futurepress/epub.js/)
