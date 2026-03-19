@@ -1,5 +1,9 @@
 # 松鼠 EPUB 阅读器 (Squirrel EPUB Reader)
 
+[中文](#简体中文) | [English](#english)
+
+<span id="简体中文"></span>
+
 在线访问：https://squirrel-epub-reader-web.vercel.app
 
 一个优雅的 EPUB 电子书阅读器，支持云端同步，让你可以随时随地享受阅读。
@@ -106,6 +110,124 @@ src/
 ├── db/                  # 数据库操作
 ├── types/               # TypeScript 类型定义
 └── i18n/                # 国际化配置
+```
+
+## License
+
+MIT
+
+---
+
+<span id="english"></span>
+
+# Squirrel EPUB Reader
+
+[中文](#简体中文) | [English](#english)
+
+Online: https://squirrel-epub-reader-web.vercel.app
+
+An elegant EPUB e-book reader with cloud sync support, letting you enjoy reading anytime, anywhere.
+
+## Features
+
+### Core Features
+- 📚 **EPUB Reading**: Support for EPUB format e-books
+- ☁️ **Cloud Sync**: S3-compatible storage sync for books, reading progress, and bookmarks
+- 📱 **Responsive Design**: Works on desktop and mobile devices
+- 🌐 **Multi-language**: Support for Chinese and English interfaces
+
+### Reading Experience
+- 🔖 **Bookmarks**: Save and manage reading bookmarks
+- 📊 **Reading Progress**: Auto-sync reading progress across sessions
+- ✌️ **Gesture Control**: Pinch to zoom, swipe to turn pages
+- 🎨 **Beautiful UI**: Modern design with light/dark theme support
+
+### Cloud Storage Support
+
+Supports multiple S3-compatible storage services:
+
+| Storage Service | Notes |
+|----------------|-------|
+| AWS S3 | Standard S3 configuration |
+| Cloudflare R2 | Path-Style access recommended |
+| Backblaze B2 | CORS configuration required |
+| Alibaba Cloud OSS | Standard S3-compatible |
+| Tencent Cloud COS | Standard S3-compatible |
+| MinIO | Self-hosted object storage |
+
+## Quick Start
+
+### Online
+
+Visit: https://squirrel-epub-reader-web.vercel.app
+
+### Local Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start development server
+pnpm dev
+
+# Build for production
+pnpm build
+```
+
+### Requirements
+
+- Node.js 18+
+- pnpm
+
+## Tech Stack
+
+- **Framework**: React + TypeScript + Vite
+- **UI Library**: Ant Design
+- **State Management**: Zustand
+- **Local Storage**: IndexedDB (Dexie.js)
+- **Cloud Storage**: S3-compatible API
+- **Internationalization**: i18next
+- **Build**: Rolldown (Vite 6+)
+
+## Cloud Storage Configuration
+
+### General S3 Settings
+
+| Setting | Description | Example |
+|---------|-------------|---------|
+| **Endpoint** | S3 service endpoint URL | `https://s3.us-west-2.amazonaws.com` |
+| **Bucket** | Storage bucket name | `my-books` |
+| **Region** | Service region | `us-west-2` |
+| **Access Key ID** | Your access key | `AKIA...` |
+| **Secret Access Key** | Your secret key | `...` |
+| **Force Path-Style** | Use path-style URLs | Varies by provider |
+| **Root Path** | Base directory for app data | `/SquirrelReader` |
+
+### Troubleshooting
+
+**CORS Errors**
+1. Enable "Force Path-Style URL" option
+2. Check CORS configuration on your storage provider
+3. Clear browser cache and retry
+
+**Connection Failed**
+1. Verify endpoint URL format
+2. Check Access Key and Secret Key
+3. Ensure bucket exists and is accessible
+
+## Project Structure
+
+```
+src/
+├── components/          # React components
+│   ├── cloud/          # Cloud storage components
+│   └── gesture/        # Gesture control components
+├── pages/              # Page components
+├── stores/             # State management
+├── utils/              # Utility functions
+├── db/                 # Database operations
+├── types/              # TypeScript types
+└── i18n/               # Internationalization
 ```
 
 ## License
