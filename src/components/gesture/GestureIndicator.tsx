@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Tooltip } from 'antd';
+import { Badge, Tooltip, theme } from 'antd';
 import { MobileOutlined } from '@ant-design/icons';
 import { useGestureStore } from '../../stores/gestureStore';
 
@@ -10,6 +10,7 @@ interface GestureIndicatorProps {
 
 export const GestureIndicator: React.FC<GestureIndicatorProps> = ({ onClick }) => {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   
   const enabled = useGestureStore((state) => state.settings.enabled);
   const gestureState = useGestureStore((state) => state.runtime.state);
@@ -57,6 +58,8 @@ export const GestureIndicator: React.FC<GestureIndicatorProps> = ({ onClick }) =
     }
   };
 
+  const textColor = enabled ? '#1890ff' : token.colorTextSecondary;
+
   return (
     <Tooltip title={`${t('gesture.title')} - ${t('gesture.clickToToggle')}`}>
       <div
@@ -80,8 +83,8 @@ export const GestureIndicator: React.FC<GestureIndicatorProps> = ({ onClick }) =
         }}
       >
         <Badge status={getStatusColor()} />
-        <MobileOutlined style={{ color: enabled ? '#1890ff' : 'var(--antd-color-text-secondary)' }} />
-        <span style={{ fontSize: 12, color: enabled ? '#1890ff' : 'var(--antd-color-text-secondary)' }}>
+        <MobileOutlined style={{ color: textColor }} />
+        <span style={{ fontSize: 12, color: textColor }}>
           {getStatusText()}
         </span>
       </div>

@@ -28,6 +28,7 @@ export const ReadPage: React.FC = () => {
         const loadedBook = await getBook(bookId);
         if (loadedBook) {
           setBook(loadedBook);
+          document.title = loadedBook.metadata.title;
         } else {
           setError(t('book.bookNotExist'));
         }
@@ -40,6 +41,10 @@ export const ReadPage: React.FC = () => {
     };
 
     loadBook();
+
+    return () => {
+      document.title = '松鼠EPUB阅读器';
+    };
   }, [bookId, t]);
 
   const handleClose = () => {

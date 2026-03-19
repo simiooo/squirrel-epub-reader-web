@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { Tree, Empty } from 'antd';
-import { FileTextOutlined, ReadOutlined } from '@ant-design/icons';
+import { Tree, Empty, Button, Typography } from 'antd';
+import { FileTextOutlined, ReadOutlined, MenuFoldOutlined, BookOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import type { Chapter } from '../types';
 
 interface TableOfContentsProps {
   chapters: Chapter[];
   currentChapterId?: string;
   onSelect: (chapterId: string, anchor?: string) => void;
+  visible?: boolean;
+  onToggle?: () => void;
 }
 
 interface TreeNode {
@@ -18,10 +20,14 @@ interface TreeNode {
   isCurrent?: boolean;
 }
 
+const { Title } = Typography;
+
 export const TableOfContents: React.FC<TableOfContentsProps> = ({
   chapters,
   currentChapterId,
   onSelect,
+  visible = true,
+  onToggle,
 }) => {
   // State for manually controlled expanded keys
   const [userExpandedKeys, setUserExpandedKeys] = useState<Set<string>>(new Set());
@@ -111,17 +117,40 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   }
 
   return (
-    <Tree
-      treeData={treeData}
-      expandedKeys={expandedKeys}
-      selectedKeys={currentChapterId ? [currentChapterId] : []}
-      onSelect={handleSelect}
-      onExpand={handleExpand}
-      style={{
-        padding: '8px 0',
-      }}
-      blockNode
-      showLine={{ showLeafIcon: false }}
-    />
+    <div style={{ padding: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+        }}
+      >
+        <Title level={5} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BookOutlined />
+          {visible ? '目录' : '目录'}
+        </Title>
+        {onToggle && (
+          <Button
+            type="text"
+            icon={visible ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            onClick={onToggle}
+            size="small"
+          />
+        )}
+      </div>
+      <Tree
+        treeData={treeData}
+        expandedKeys={expandedKeys}
+        selectedKeys={currentChapterId ? [currentChapterId] : []}
+        onSelect={handleSelect}
+        onExpand={handleExpand}
+        style={{
+          padding: '8px 0',
+        }}
+        blockNode
+        showLine={{ showLeafIcon: false }}
+      />
+    </div>
   );
 };

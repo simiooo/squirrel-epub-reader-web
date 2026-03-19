@@ -12,14 +12,13 @@ import {
   Skeleton,
   Card,
   theme,
+  Breadcrumb,
 } from 'antd';
 import {
-  MenuUnfoldOutlined,
-  MenuFoldOutlined,
   LeftOutlined,
   RightOutlined,
   HomeOutlined,
-  BookOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { TableOfContents } from './TableOfContents';
 import { GestureIndicator } from './gesture/GestureIndicator';
@@ -358,6 +357,27 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
     }
   }, [chapters, currentChapterIndex, t]);
 
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollTop = useRef(0);
+
+  useEffect(() => {
+    const contentEl = contentRef.current;
+    if (!contentEl) return;
+
+    const handleScroll = () => {
+      const scrollTop = contentEl.scrollTop;
+      if (scrollTop > lastScrollTop.current && scrollTop > 50) {
+        setHeaderVisible(false);
+      } else {
+        setHeaderVisible(true);
+      }
+      lastScrollTop.current = scrollTop;
+    };
+
+    contentEl.addEventListener('scroll', handleScroll, { passive: true });
+    return () => contentEl.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden' }}>
       <GestureOverlay />
@@ -372,24 +392,30 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
             justifyContent: 'space-between',
             alignItems: 'center',
             zIndex: 100,
+            opacity: headerVisible ? 1 : 0,
+            transform: headerVisible ? 'translateY(0)' : 'translateY(-100%)',
+            transition: 'all 0.3s ease',
+            position: 'relative',
           }}
         >
           <Space>
-            <Button icon={<HomeOutlined />} onClick={onClose}>
-              {t('nav.backToBookshelf')}
-            </Button>
-            <Button
-              icon={tocVisible ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-              onClick={() => setTocVisible(!tocVisible)}
-            >
-              {tocVisible ? t('reader.hideToc') : t('reader.showToc')}
-            </Button>
+            <Breadcrumb
+              items={[
+                {
+                  title: (
+                    <Button type="text" icon={<HomeOutlined />} onClick={onClose} size="small">
+                      {t('nav.backToBookshelf')}
+                    </Button>
+                  ),
+                },
+                {
+                  title: book.metadata.title,
+                },
+              ]}
+            />
           </Space>
 
           <div style={{ flex: 1, textAlign: 'center', padding: '0 24px' }}>
-            <Title level={5} style={{ margin: 0 }}>
-              {book.metadata.title}
-            </Title>
             {currentChapter && (
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {currentChapter.title}
@@ -430,18 +456,27 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
               overflow: 'auto',
             }}
           >
-            <div style={{ padding: 16 }}>
-              <Title level={5} style={{ marginTop: 0, marginBottom: 16 }}>
-                <BookOutlined style={{ marginRight: 8 }} />
-                {t('reader.tableOfContents')}
-              </Title>
-              <TableOfContents
-                chapters={tableOfContents}
-                currentChapterId={currentTocId}
-                onSelect={handleTocSelect}
-              />
-            </div>
+            <TableOfContents
+              chapters={tableOfContents}
+              currentChapterId={currentTocId}
+              onSelect={handleTocSelect}
+              onToggle={() => setTocVisible(false)}
+            />
           </Sider>
+        )}
+        
+        {!tocVisible && (
+          <Button
+            type="text"
+            icon={<MenuUnfoldOutlined />}
+            onClick={() => setTocVisible(true)}
+            style={{
+              position: 'absolute',
+              left: 8,
+              top: 64,
+              zIndex: 101,
+            }}
+          />
         )}
 
         {/* Content Area */}
