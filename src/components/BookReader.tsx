@@ -10,9 +10,7 @@ import {
   Affix,
   Progress,
   Skeleton,
-  Card,
   theme,
-  Breadcrumb,
 } from 'antd';
 import {
   LeftOutlined,
@@ -385,7 +383,8 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
       <Affix>
         <div
           style={{
-            padding: '12px 24px',
+            padding: '0 24px',
+            height: 56,
             backgroundColor: token.colorBgContainer,
             borderBottom: `1px solid ${token.colorBorderSecondary}`,
             display: 'flex',
@@ -398,53 +397,46 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
             position: 'relative',
           }}
         >
-          <Space>
-            <Breadcrumb
-              items={[
-                {
-                  title: (
-                    <Button type="text" icon={<HomeOutlined />} onClick={onClose} size="small">
-                      {t('nav.backToBookshelf')}
-                    </Button>
-                  ),
-                },
-                {
-                  title: book.metadata.title,
-                },
-              ]}
-            />
-          </Space>
+          <Button 
+            type="text" 
+            icon={<HomeOutlined />} 
+            onClick={onClose}
+            style={{ marginLeft: -8 }}
+          >
+            {t('nav.backToBookshelf')}
+          </Button>
 
-          <div style={{ flex: 1, textAlign: 'center', padding: '0 24px' }}>
-            {currentChapter && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {currentChapter.title}
+          <Text strong style={{ 
+            flex: 1, 
+            textAlign: 'center', 
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            padding: '0 16px',
+          }}>
+            {currentChapter?.title || book.metadata.title}
+          </Text>
+
+          <Space size={16}>
+            {chapters.length > 0 && (
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                {currentChapterIndex + 1} / {chapters.length}
               </Text>
             )}
-          </div>
-
-          <Space>
+            <Progress
+              percent={Math.round(((currentChapterIndex + 1) / chapters.length) * 100)}
+              size="small"
+              style={{ width: 60 }}
+              showInfo={false}
+            />
             <GestureIndicator onClick={() => {
               updateSettings({ enabled: !settings.enabled });
             }} />
-            {chapters.length > 0 && (
-              <>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {currentChapterIndex + 1} / {chapters.length}
-                </Text>
-                <Progress
-                  percent={Math.round(((currentChapterIndex + 1) / chapters.length) * 100)}
-                  size="small"
-                  style={{ width: 80 }}
-                  showInfo={false}
-                />
-              </>
-            )}
           </Space>
         </div>
       </Affix>
 
-      <Layout style={{ height: 'calc(100vh - 57px)' }}>
+      <Layout style={{ height: 'calc(100vh - 56px)' }}>
         {/* Table of Contents Sidebar */}
         {tocVisible && (
           <Sider
@@ -567,23 +559,25 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
               />
 
               {/* Navigation Footer */}
-              <Divider style={{ marginTop: token.marginXL * 2, marginBottom: token.marginLG }}>
-                <Text type="secondary">
-                  {t('reader.chapterProgress', { current: currentChapterIndex + 1, total: chapters.length })}
-                </Text>
-              </Divider>
-
-              <Card
-                style={{
-                  marginBottom: token.marginXL,
-                  backgroundColor: token.colorFillAlter,
-                }}
-              >
+              <div style={{ 
+                marginTop: token.marginXL * 2,
+                paddingTop: token.paddingLG,
+                borderTop: `1px solid ${token.colorBorderSecondary}`,
+              }}>
+                <Progress
+                  percent={Math.round(((currentChapterIndex + 1) / chapters.length) * 100)}
+                  size="small"
+                  style={{ marginBottom: token.marginLG }}
+                  status={currentChapterIndex === chapters.length - 1 ? 'success' : 'active'}
+                  strokeColor={token.colorPrimary}
+                />
+                
                 <div
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
+                    gap: 16,
                   }}
                 >
                   <Button
@@ -591,32 +585,26 @@ export const BookReader: React.FC<BookReaderProps> = ({ book, onClose }) => {
                     onClick={goToPrevious}
                     disabled={currentChapterIndex === 0}
                     size="large"
+                    style={{ flex: 1 }}
                   >
                     {t('reader.previous')}
                   </Button>
 
-                  <Space direction="vertical" align="center" size={4}>
-                    <Text type="secondary">
-                      {t('reader.readProgress', { progress: Math.round(((currentChapterIndex + 1) / chapters.length) * 100) })}
-                    </Text>
-                    <Progress
-                      percent={Math.round(((currentChapterIndex + 1) / chapters.length) * 100)}
-                      size="small"
-                      style={{ width: 120 }}
-                      status={currentChapterIndex === chapters.length - 1 ? 'success' : 'active'}
-                    />
-                  </Space>
+                  <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
+                    {t('reader.chapterProgress', { current: currentChapterIndex + 1, total: chapters.length })}
+                  </Text>
 
                   <Button
                     icon={<RightOutlined />}
                     onClick={goToNext}
                     disabled={currentChapterIndex === chapters.length - 1}
                     size="large"
+                    style={{ flex: 1 }}
                   >
                     {t('reader.next')}
                   </Button>
                 </div>
-              </Card>
+              </div>
             </div>
           ) : (
             <div style={{ textAlign: 'center', paddingTop: 100 }}>

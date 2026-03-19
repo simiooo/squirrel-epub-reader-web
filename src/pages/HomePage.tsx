@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Typography, Collapse, Empty, Spin, Tag, Space, Divider, Button, message } from 'antd';
+import { Typography, Collapse, Empty, Spin, Tag, Space, Button, message, theme } from 'antd';
 import { CloudOutlined, SyncOutlined, DownOutlined } from '@ant-design/icons';
 import { BookList } from '../components/BookList';
 import { BookImport } from '../components/BookImport';
@@ -12,11 +12,13 @@ import { getAllConnectors, getAllCloudBooks, deleteCloudBook } from '../db';
 import { refreshCloudBooks, getConnectorInstance } from '../services/bookSyncService';
 import type { StoredConnector, StoredCloudBook } from '../types';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Panel } = Collapse;
+const { useToken } = theme;
 
 export const HomePage: React.FC = () => {
   const { t } = useTranslation();
+  const { token } = useToken();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [connectors, setConnectors] = useState<StoredConnector[]>([]);
   const [cloudBooksByConnector, setCloudBooksByConnector] = useState<Map<string, StoredCloudBook[]>>(new Map());
@@ -133,48 +135,76 @@ export const HomePage: React.FC = () => {
   return (
     <div
       data-gesture-scrollable
-      style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', padding: 24, overflow: 'auto' }}
+      style={{ 
+        minHeight: '100vh', 
+        backgroundColor: token.colorBgLayout, 
+        padding: 0, 
+        overflow: 'auto' 
+      }}
     >
-      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
       <GestureOverlay />
+      
+      {/* Hero Section */}
       <div style={{ 
-        marginBottom: 24, 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 12,
+        padding: '48px 24px 32px',
+        maxWidth: 1600,
+        margin: '0 auto',
       }}>
-        <Title level={2} style={{ margin: 0 }}>{t('nav.myBookshelf')}</Title>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <LanguageSwitcher />
-          <SettingsButton onCloudSyncComplete={handleSyncComplete} />
-          <BookImport onImport={handleImport} />
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 24,
+        }}>
+          <div>
+            <Title level={1} style={{ margin: 0, fontSize: token.fontSizeLG * 2 }}>
+              {t('nav.myBookshelf')}
+            </Title>
+            <Text type="secondary" style={{ marginTop: 8, display: 'block' }}>
+              {t('book.import')}
+            </Text>
+          </div>
+          <Space size={12}>
+            <LanguageSwitcher />
+            <SettingsButton onCloudSyncComplete={handleSyncComplete} />
+            <BookImport onImport={handleImport} />
+          </Space>
         </div>
       </div>
 
       {/* 本地书架 */}
-      <div style={{ marginBottom: 24 }}>
-        <Title level={4} style={{ marginBottom: 16 }}>
-          {t('book.import')}
-        </Title>
+      <div style={{ 
+        padding: '0 24px 48px',
+        maxWidth: 1600,
+        margin: '0 auto',
+      }}>
         <BookList refreshTrigger={refreshTrigger} onSyncSuccess={handleSyncComplete} />
       </div>
 
       {/* 云端书架分类 */}
       {connectors.length > 0 && (
-        <>
-          <Divider />
-          <Title level={4} style={{ marginBottom: 16 }}>
-            <Space>
-              <CloudOutlined />
+        <div style={{ 
+          padding: '0 24px 48px',
+          maxWidth: 1600,
+          margin: '0 auto',
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 24,
+          }}>
+            <CloudOutlined style={{ fontSize: 20, color: token.colorPrimary }} />
+            <Title level={3} style={{ margin: 0 }}>
               {t('cloudStorage.cloudBooks.title')}
-            </Space>
-          </Title>
+            </Title>
+          </div>
           
           <Collapse
             defaultActiveKey={connectors.map(c => c.id)}
             expandIcon={({ isActive }) => <DownOutlined style={{ transition: 'transform 0.2s' }} rotate={isActive ? 0 : -90} />}
+            style={{ backgroundColor: token.colorBgContainer, borderRadius: token.borderRadiusLG }}
           >
             {connectors.map(connector => {
               const cloudBooks = cloudBooksByConnector.get(connector.id) || [];
@@ -184,8 +214,8 @@ export const HomePage: React.FC = () => {
                   key={connector.id}
                   header={
                     <Space>
-                      <span>{connector.name}</span>
-                      <Tag color="blue">{cloudBooks.length}</Tag>
+                      <Text strong>{connector.name}</Text>
+                      <Tag style={{ borderRadius: token.borderRadiusSM }}>{cloudBooks.length}</Tag>
                     </Space>
                   }
                   extra={
@@ -224,9 +254,8 @@ export const HomePage: React.FC = () => {
               );
             })}
           </Collapse>
-        </>
+        </div>
       )}
-      </div>
     </div>
   );
 };

@@ -1,11 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, Button, message, Modal } from 'antd';
+import { Upload, Button, message, Modal, Typography, theme } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { epubParser } from '../utils/epubParser';
 import { addBook } from '../db';
 import type { Book } from '../types';
+
+const { Text, Title } = Typography;
+const { useToken } = theme;
 
 interface BookImportProps {
   onImport: () => void;
@@ -13,6 +16,7 @@ interface BookImportProps {
 
 export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
   const { t } = useTranslation();
+  const { token } = useToken();
   const [uploading, setUploading] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -111,6 +115,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
         confirmLoading={uploading}
         okText={t('book.importToLocal')}
         cancelText={t('common.cancel')}
+        styles={{ body: { padding: '24px 0' } }}
       >
         {previewBook && (
           <div style={{ textAlign: 'center' }}>
@@ -122,8 +127,9 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
                   maxWidth: 200,
                   maxHeight: 300,
                   objectFit: 'contain',
-                  marginBottom: 16,
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  marginBottom: 20,
+                  borderRadius: 8,
+                  boxShadow: '0 4px 16px rgba(62, 39, 35, 0.12)',
                 }}
               />
             ) : (
@@ -131,22 +137,29 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
                 style={{
                   width: 200,
                   height: 300,
-                  backgroundColor: '#f0f0f0',
+                  background: `linear-gradient(145deg, ${token.colorPrimary} 0%, ${token.colorPrimary}80 100%)`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  margin: '0 auto 16px',
-                  borderRadius: 4,
+                  margin: '0 auto 20px',
+                  borderRadius: 8,
                 }}
               >
-                {t('book.noCover')}
+                <Text style={{ color: 'rgba(255,255,255,0.7)' }}>{t('book.noCover')}</Text>
               </div>
             )}
-            <h3 style={{ margin: '16px 0 8px' }}>{previewBook.title}</h3>
-            <p style={{ color: '#666', margin: 0 }}>{t('book.author')}：{previewBook.author}</p>
-            <p style={{ color: '#999', fontSize: 12, marginTop: 16, padding: '8px 16px', backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+            <Title level={4} style={{ margin: '0 0 8px' }}>{previewBook.title}</Title>
+            <Text type="secondary">{t('book.author')}：{previewBook.author}</Text>
+            <div style={{ 
+              marginTop: 20, 
+              padding: '12px 16px', 
+              backgroundColor: token.colorFillAlter, 
+              borderRadius: token.borderRadius,
+              fontSize: token.fontSizeSM,
+              color: token.colorTextSecondary,
+            }}>
               {t('book.localOnlyTip')}
-            </p>
+            </div>
           </div>
         )}
       </Modal>
