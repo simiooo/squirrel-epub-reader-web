@@ -278,6 +278,11 @@
   margin-bottom: 0;
 }
 
+/* Reduce text-indent for paragraphs inside list items */
+.chapter-content li p {
+  text-indent: 0.5em;
+}
+
 /* ==================== TEXT FORMATTING ==================== */
 .chapter-content strong,
 .chapter-content b {
