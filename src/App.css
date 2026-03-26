@@ -673,6 +673,106 @@
   color: var(--antd-color-primary, #1890ff);
 }
 
+/* ==================== NOTE/ADMONITION BOXES ==================== */
+.chapter-content .note,
+.chapter-content .warning,
+.chapter-content .tip,
+.chapter-content .important {
+  margin: var(--antd-margin-lg, 1.5em) 0;
+  padding: var(--antd-padding, 1em) var(--antd-padding, 1.2em);
+  padding-left: calc(var(--antd-padding, 1.2em) + 3px);
+  border-radius: var(--antd-border-radius, 4px);
+  background-color: var(--antd-color-primary-bg, rgba(24, 144, 255, 0.06));
+  border-left: 3px solid var(--antd-color-primary, #1890ff);
+  position: relative;
+}
+
+/* Note title styling - make it small and inline-looking */
+.chapter-content .note .title,
+.chapter-content .note h3.title,
+.chapter-content .warning .title,
+.chapter-content .warning h3.title,
+.chapter-content .tip .title,
+.chapter-content .tip h3.title,
+.chapter-content .important .title,
+.chapter-content .important h3.title {
+  font-size: var(--antd-font-size-sm, 12px);
+  font-weight: 600;
+  color: var(--antd-color-primary, #1890ff);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 var(--antd-margin-sm, 0.5em) 0;
+  padding: 0;
+  line-height: 1.4;
+}
+
+/* Remove top margin from first element in note */
+.chapter-content .note > *:first-child,
+.chapter-content .warning > *:first-child,
+.chapter-content .tip > *:first-child,
+.chapter-content .important > *:first-child {
+  margin-top: 0;
+}
+
+/* Remove bottom margin from last element in note */
+.chapter-content .note > *:last-child,
+.chapter-content .warning > *:last-child,
+.chapter-content .tip > *:last-child,
+.chapter-content .important > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Note paragraphs - smaller text, no indent */
+.chapter-content .note p,
+.chapter-content .warning p,
+.chapter-content .tip p,
+.chapter-content .important p {
+  text-indent: 0;
+  margin-bottom: var(--antd-margin-xs, 0.5em);
+  font-size: calc(var(--antd-font-size, 14px) * 0.95);
+}
+
+/* Warning style - orange */
+.chapter-content .warning {
+  background-color: var(--antd-color-warning-bg, rgba(255, 167, 39, 0.06));
+  border-left-color: var(--antd-color-warning, #faad14);
+}
+
+.chapter-content .warning .title,
+.chapter-content .warning h3.title {
+  color: var(--antd-color-warning, #faad14);
+}
+
+/* Tip style - green */
+.chapter-content .tip {
+  background-color: var(--antd-color-success-bg, rgba(82, 196, 26, 0.06));
+  border-left-color: var(--antd-color-success, #52c41a);
+}
+
+.chapter-content .tip .title,
+.chapter-content .tip h3.title {
+  color: var(--antd-color-success, #52c41a);
+}
+
+/* Important style - red */
+.chapter-content .important {
+  background-color: var(--antd-color-error-bg, rgba(255, 77, 79, 0.06));
+  border-left-color: var(--antd-color-error, #f5222d);
+}
+
+.chapter-content .important .title,
+.chapter-content .important h3.title {
+  color: var(--antd-color-error, #f5222d);
+}
+
+/* Nested notes - less prominent */
+.chapter-content .note .note,
+.chapter-content .warning .warning,
+.chapter-content .tip .tip {
+  margin: var(--antd-margin-sm, 0.5em) 0;
+  padding: var(--antd-padding-sm, 0.75em);
+}
+
 /* ==================== FIELDSET/LEGEND ==================== */
 .chapter-content fieldset {
   border: 1px solid var(--antd-color-border-secondary, #f0f0f0);
