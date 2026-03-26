@@ -369,7 +369,7 @@ export class EpubParser {
         let imageIndex = 0;
         for (const img of images) {
           const src = img.getAttribute('src');
-          if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+          if (src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('//') && !src.startsWith('data:')) {
             // Construct full image path
             const imagePath = src.startsWith('/') 
               ? src.substring(1) 
