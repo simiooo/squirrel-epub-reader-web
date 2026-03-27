@@ -500,6 +500,42 @@
   background: transparent;
 }
 
+/* ==================== INLINE MEDIA OBJECTS ==================== */
+/* Small inline icons/numbers (e.g., code line markers, footnote markers) */
+.chapter-content span.inlinemediaobject,
+.chapter-content .inlinemediaobject {
+  display: inline;
+  vertical-align: middle;
+}
+
+.chapter-content span.inlinemediaobject img,
+.chapter-content .inlinemediaobject img {
+  display: inline-block;
+  vertical-align: middle;
+  min-height: auto;
+  height: 1.2em;
+  width: auto;
+  margin: 0 0.1em;
+  background: transparent;
+  animation: none;
+}
+
+/* Remove loading animation for inline images */
+.chapter-content span.inlinemediaobject img.epub-lazy-image,
+.chapter-content .inlinemediaobject img.epub-lazy-image {
+  background: transparent;
+  animation: none;
+  min-height: auto;
+  max-height: 1.5em;
+}
+
+/* When inline image has loaded */
+.chapter-content span.inlinemediaobject img.epub-lazy-image[src],
+.chapter-content .inlinemediaobject img.epub-lazy-image[src] {
+  background: transparent;
+  animation: none;
+}
+
 /* ==================== CODE ==================== */
 .chapter-content pre {
   background-color: var(--antd-color-fill-secondary, #f5f5f5);
