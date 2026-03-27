@@ -565,6 +565,20 @@
   margin: var(--antd-margin, 1em) 0;
 }
 
+/* Inline images in code blocks (e.g., line number markers) */
+.chapter-content pre img,
+.chapter-content pre img.epub-lazy-image {
+  display: inline-block;
+  vertical-align: middle;
+  min-height: 1em !important;
+  max-height: 1.2em;
+  height: 1em;
+  width: auto;
+  margin: 0 0.3em 0 0;
+  background: transparent !important;
+  animation: none !important;
+}
+
 .chapter-content code,
 .chapter-content tt {
   font-family: var(--antd-font-family-code, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace);
