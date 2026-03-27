@@ -536,6 +536,20 @@
   animation: none;
 }
 
+/* Empty anchor tags inside inlinemediaobject - remove from layout flow */
+/* These are index markers (e.g., <a id="I_inlinemediaobject..."></a>) */
+.chapter-content span.inlinemediaobject a:empty,
+.chapter-content .inlinemediaobject a:empty,
+.chapter-content span.inlinemediaobject a[id^="I_"]:not([href]),
+.chapter-content .inlinemediaobject a[id^="I_"]:not([href]) {
+  display: none;
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
 /* ==================== CODE ==================== */
 .chapter-content pre {
   background-color: var(--antd-color-fill-secondary, #f5f5f5);
