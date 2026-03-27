@@ -512,20 +512,21 @@
 .chapter-content .inlinemediaobject img {
   display: inline-block;
   vertical-align: middle;
-  min-height: auto;
+  min-height: 1.2em !important;  /* Override inline style */
   height: 1.2em;
+  max-height: 1.5em;
   width: auto;
   margin: 0 0.1em;
-  background: transparent;
-  animation: none;
+  background: transparent !important;  /* Override inline style */
+  animation: none !important;  /* Override inline animation */
 }
 
 /* Remove loading animation for inline images */
 .chapter-content span.inlinemediaobject img.epub-lazy-image,
 .chapter-content .inlinemediaobject img.epub-lazy-image {
-  background: transparent;
-  animation: none;
-  min-height: auto;
+  background: transparent !important;
+  animation: none !important;
+  min-height: 1.2em !important;
   max-height: 1.5em;
 }
 
