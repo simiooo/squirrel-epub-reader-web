@@ -1,9 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist';
+// 引入 pdf.js 的 CSS 样式（用于文本层正确渲染）
+import 'pdfjs-dist/web/pdf_viewer.css';
 
 interface PdfPageProps {
   pageNumber: number;
-  scale: number;
   width: number;
   height: number;
   pdfDocument: { getPage: (pageNumber: number) => Promise<PDFPageProxy | null> } | null;
@@ -13,9 +15,8 @@ interface PdfPageProps {
   className?: string;
 }
 
-export const PdfPage: React.FC<PdfPageProps> = ({
+export const PdfPage: React.FC<PdfPageProps> = React.memo(({
   pageNumber,
-  scale,
   width,
   height,
   pdfDocument,
@@ -29,83 +30,69 @@ export const PdfPage: React.FC<PdfPageProps> = ({
   const textLayerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [containerSize, setContainerSize] = useState({ width, height });
   const renderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
+  // 追踪是否已经渲染完成，避免重复渲染
+  const hasRenderedRef = useRef(false);
+  // 追踪上一次的 isVisible 状态
+  const prevIsVisibleRef = useRef(false);
 
-  // 监听容器尺寸变化
-  useEffect(() => {
-    if (containerRef.current) {
-      const resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const { width: w, height: h } = entry.contentRect;
-          setContainerSize({ width: w, height: h });
-        }
-      });
-      resizeObserver.observe(containerRef.current);
-      return () => resizeObserver.disconnect();
-    }
-  }, []);
+  // 存储 TextLayer 实例用于清理
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const textLayerInstanceRef = useRef<any>(null);
 
-  // 渲染文本层
+  // 渲染文本层 - 使用 pdf.js 官方的 TextLayer 类
   const renderTextLayer = useCallback(async (page: PDFPageProxy) => {
     if (!textLayerRef.current || !isMountedRef.current) return;
 
     const textLayer = textLayerRef.current;
     textLayer.innerHTML = '';
 
+    // 清理之前的 TextLayer 实例
+    if (textLayerInstanceRef.current) {
+      textLayerInstanceRef.current.cancel();
+      textLayerInstanceRef.current = null;
+    }
+
     try {
-      const textContent = await page.getTextContent();
-      const viewport = page.getViewport({ scale });
+      // 使用容器尺寸（已由 PdfReader 根据 scale 计算好）
+      const containerWidth = width;
+      const containerHeight = height;
 
-      // 使用容器的实际尺寸
-      const containerWidth = containerSize.width;
-      const containerHeight = containerSize.height;
+      // 计算缩放比例：容器尺寸 / 原始页面尺寸（与 canvas 渲染保持一致）
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scaleX = containerWidth / baseViewport.width;
+      const scaleY = containerHeight / baseViewport.height;
+      const fitScale = Math.min(scaleX, scaleY);
 
-      // 设置文本层尺寸与容器一致
-      textLayer.style.width = '100%';
-      textLayer.style.height = '100%';
+      // 获取与 canvas 相同的 viewport
+      const viewport = page.getViewport({ scale: fitScale });
 
-      // 计算缩放比例（PDF坐标系到容器像素）
-      const scaleX = containerWidth / viewport.width;
-      const scaleY = containerHeight / viewport.height;
+      // 设置文本层尺寸与 viewport 一致
+      textLayer.style.width = `${viewport.width}px`;
+      textLayer.style.height = `${viewport.height}px`;
 
-      // 创建文本片段
-      for (const item of textContent.items) {
-        const textItem = item as {
-          str: string;
-          dir: string;
-          width: number;
-          height: number;
-          transform: number[];
-          fontName: string;
-          hasEOL: boolean;
-        };
+      // 设置 pdf.js CSS 所需的 CSS 变量
+      textLayer.style.setProperty('--total-scale-factor', `${fitScale}`);
 
-        const tx = pdfjsLib.Util.transform(viewport.transform, textItem.transform);
-        const fontHeight = Math.hypot(tx[0], tx[1]);
-        const fontWidth = Math.hypot(tx[2], tx[3]);
+      // 使用官方的 TextLayer 类
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const textLayerInstance = new (pdfjsLib as any).TextLayer({
+        textContentSource: page.streamTextContent({
+          includeMarkedContent: false,
+        }),
+        container: textLayer,
+        viewport: viewport,
+      });
 
-        const span = document.createElement('span');
-        span.textContent = textItem.str;
-        span.style.position = 'absolute';
-        // 应用缩放比例
-        span.style.left = `${tx[4] * scaleX}px`;
-        span.style.top = `${(tx[5] - fontHeight) * scaleY}px`;
-        span.style.fontSize = `${fontHeight * scaleY}px`;
-        span.style.fontFamily = textItem.fontName;
-        span.style.transform = `scaleX(${textItem.width * scaleX / fontWidth})`;
-        span.style.transformOrigin = '0% 0%';
-        span.style.whiteSpace = 'pre';
-        span.style.userSelect = 'text';
-        span.style.cursor = 'text';
+      textLayerInstanceRef.current = textLayerInstance;
 
-        textLayer.appendChild(span);
-      }
+      // 渲染文本层
+      await textLayerInstance.render();
     } catch (error) {
       console.warn(`Failed to render text layer for page ${pageNumber}:`, error);
     }
-  }, [pageNumber, scale, containerSize]);
+  }, [pageNumber, width, height]);
 
   // 渲染页面
   const renderPage = useCallback(async () => {
@@ -119,8 +106,12 @@ export const PdfPage: React.FC<PdfPageProps> = ({
       return;
     }
 
-    setIsLoading(true);
-    setHasError(false);
+    // 如果已经渲染过，不再重复渲染
+    if (hasRenderedRef.current) {
+      setIsLoading(false);
+      setHasError(false);
+      return;
+    }
 
     try {
       const page = await pdfDocument.getPage(pageNumber);
@@ -128,16 +119,17 @@ export const PdfPage: React.FC<PdfPageProps> = ({
         throw new Error(`Page ${pageNumber} not found`);
       }
 
-      const viewport = page.getViewport({ scale: 1 });
+      const baseViewport = page.getViewport({ scale: 1 });
       const pixelRatio = window.devicePixelRatio || 1;
 
       // 使用容器尺寸计算渲染尺寸
-      const containerWidth = containerSize.width;
-      const containerHeight = containerSize.height;
+      // width/height 已经由 PdfReader 根据 scale 计算好，直接使用
+      const containerWidth = width;
+      const containerHeight = height;
 
-      // 计算适应容器的缩放比例
-      const scaleX = containerWidth / viewport.width;
-      const scaleY = containerHeight / viewport.height;
+      // 计算缩放比例：容器尺寸 / 原始页面尺寸
+      const scaleX = containerWidth / baseViewport.width;
+      const scaleY = containerHeight / baseViewport.height;
       const fitScale = Math.min(scaleX, scaleY);
 
       // 获取适合容器大小的 viewport
@@ -178,6 +170,7 @@ export const PdfPage: React.FC<PdfPageProps> = ({
 
       if (isMountedRef.current) {
         setIsLoading(false);
+        hasRenderedRef.current = true;
         onRenderComplete?.();
       }
     } catch (error) {
@@ -187,31 +180,54 @@ export const PdfPage: React.FC<PdfPageProps> = ({
         onRenderError?.(error instanceof Error ? error : new Error(String(error)));
       }
     }
-  }, [pageNumber, scale, pdfDocument, isVisible, containerSize, renderTextLayer, onRenderComplete, onRenderError]);
+  }, [pageNumber, width, height, pdfDocument, isVisible, renderTextLayer, onRenderComplete, onRenderError]);
 
-  // 初始化和更新渲染
+  // 监听尺寸变化和可见性变化
   useEffect(() => {
     isMountedRef.current = true;
-
-    // 清除之前的超时
-    if (renderTimeoutRef.current) {
-      clearTimeout(renderTimeoutRef.current);
-    }
-
-    // 使用 requestAnimationFrame 来避免阻塞主线程
-    renderTimeoutRef.current = setTimeout(() => {
-      if (isMountedRef.current) {
-        renderPage();
+    
+    // 当 width 或 height 变化时，重置渲染状态
+    hasRenderedRef.current = false;
+    // 清理画布
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       }
-    }, 0);
-
+    }
+    // 清理文本层
+    if (textLayerRef.current) {
+      textLayerRef.current.innerHTML = '';
+    }
+    if (textLayerInstanceRef.current) {
+      textLayerInstanceRef.current.cancel();
+      textLayerInstanceRef.current = null;
+    }
+    
     return () => {
       isMountedRef.current = false;
       if (renderTimeoutRef.current) {
         clearTimeout(renderTimeoutRef.current);
       }
     };
-  }, [renderPage]);
+  }, [width, height]);
+
+  // 监听 isVisible 变化，触发渲染
+  useEffect(() => {
+    // 如果可见且未渲染过，则触发渲染
+    if (isVisible && !hasRenderedRef.current) {
+      if (renderTimeoutRef.current) {
+        clearTimeout(renderTimeoutRef.current);
+      }
+      renderTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          renderPage();
+        }
+      }, 0);
+    }
+    // 如果变为不可见，记录状态但不清理（保留已渲染的内容）
+    prevIsVisibleRef.current = isVisible;
+  }, [isVisible, renderPage]);
 
   // 组件卸载时清理资源
   useEffect(() => {
@@ -220,7 +236,12 @@ export const PdfPage: React.FC<PdfPageProps> = ({
       if (renderTimeoutRef.current) {
         clearTimeout(renderTimeoutRef.current);
       }
-      // 清理文本层
+      // 清理 TextLayer 实例
+      if (textLayerInstanceRef.current) {
+        textLayerInstanceRef.current.cancel();
+        textLayerInstanceRef.current = null;
+      }
+      // 清理文本层 DOM
       if (textLayerRef.current) {
         textLayerRef.current.innerHTML = '';
       }
@@ -245,15 +266,8 @@ export const PdfPage: React.FC<PdfPageProps> = ({
   };
 
   const textLayerStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-    opacity: 0.2,
-    lineHeight: 1,
-    pointerEvents: 'auto',
+    // 基础定位由 pdf.js CSS 处理，这里只确保层级正确
+    zIndex: 1,
   };
 
   const loadingStyle: React.CSSProperties = {
@@ -283,7 +297,7 @@ export const PdfPage: React.FC<PdfPageProps> = ({
       <div
         ref={textLayerRef}
         style={textLayerStyle}
-        className="pdf-text-layer"
+        className="textLayer"
       />
       {isLoading && (
         <div style={loadingStyle}>加载中...{pageNumber}</div>
@@ -297,7 +311,4 @@ export const PdfPage: React.FC<PdfPageProps> = ({
       )}
     </div>
   );
-};
-
-// 导入 pdfjsLib 用于文本层渲染
-import * as pdfjsLib from 'pdfjs-dist';
+});

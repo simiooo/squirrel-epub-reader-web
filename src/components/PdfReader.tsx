@@ -58,9 +58,6 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
   const [pageInfos, setPageInfos] = useState<PageInfo[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [scrollPosition, setScrollPosition] = useState({ x: 0, y: 0 });
   
   const listRef = useRef<HTMLDivElement>(null);
   const vlistRef = useRef<VListHandle>(null);
@@ -131,14 +128,14 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
     const progressData: PdfReadingProgress = {
       bookId: book.id,
       currentPage: currentPage,
-      currentPosition: scrollPosition.y,
+      currentPosition: 0,
       lastReadAt: new Date(),
       totalProgress: pdfData ? (currentPage / pdfData.pageCount) * 100 : 0,
       scale,
     };
 
     await saveProgress(progressData as unknown as import('../types').ReadingProgress);
-  }, [book.id, currentPage, scrollPosition.y, pdfData, scale]);
+  }, [book.id, currentPage, pdfData, scale]);
 
   useEffect(() => {
     if (!loading && pdfData) {
@@ -177,26 +174,6 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
     setScale((prev) => Math.max(prev - SCALE_STEP, MIN_SCALE));
   }, []);
 
-  // 拖拽支持
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return; // 只处理左键
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - scrollPosition.x, y: e.clientY - scrollPosition.y });
-  }, [scrollPosition]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    setScrollPosition({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
-  }, [isDragging, dragStart]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
   // 全屏切换
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -219,6 +196,37 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // 键盘快捷键：Ctrl + Plus/Minus 缩放
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检查是否按下 Ctrl 键（不包括 Cmd 键，避免在 Mac 上冲突）
+      if (e.ctrlKey && !e.metaKey) {
+        // 使用 e.code 获取物理按键位置，更可靠
+        // Equal 是 =/+ 键，NumpadAdd 是数字键盘加号
+        // 同时检查 e.key 以处理各种键盘布局
+        const isPlus = e.code === 'Equal' || e.code === 'NumpadAdd' || e.key === '+' || e.key === '=';
+        const isMinus = e.code === 'Minus' || e.code === 'NumpadSubtract' || e.key === '-';
+        
+        if (isPlus) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleZoomIn();
+        } else if (isMinus) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleZoomOut();
+        }
+      }
+    };
+
+    // 在捕获阶段监听，确保在浏览器默认行为之前拦截
+    window.addEventListener('keydown', handleKeyDown, true);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [handleZoomIn, handleZoomOut]);
+
   // 跳转到指定页面
   const goToPage = useCallback((pageNumber: number) => {
     if (pageNumber >= 1 && pageNumber <= (pdfData?.pageCount || 0)) {
@@ -231,23 +239,25 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
   }, [pdfData?.pageCount, pageInfos]);
 
   // 将 PDF outline 转换为 Tree 数据
-  const outlineToTreeData = useCallback((items: PdfOutlineItem[]): TreeDataNode[] => {
-    return items.map((item) => ({
-      key: `page-${item.pageNumber}`,
-      title: item.title,
-      isLeaf: item.items.length === 0,
-      children: item.items.length > 0 ? outlineToTreeData(item.items) : undefined,
-    }));
+  const outlineToTreeData = useCallback((items: PdfOutlineItem[], parentKey = ''): TreeDataNode[] => {
+    return items.map((item, index) => {
+      const key = parentKey ? `${parentKey}-${index}` : `outline-${index}`;
+      return {
+        key,
+        title: item.title,
+        isLeaf: item.items.length === 0,
+        children: item.items.length > 0 ? outlineToTreeData(item.items, key) : undefined,
+        // 存储页码信息用于跳转
+        pageNumber: item.pageNumber,
+      };
+    });
   }, []);
 
   // 处理 Tree 选择
-  const handleTreeSelect = useCallback((selectedKeys: React.Key[]) => {
-    if (selectedKeys.length > 0) {
-      const key = selectedKeys[0] as string;
-      const pageNumber = parseInt(key.replace('page-', ''), 10);
-      if (!isNaN(pageNumber)) {
-        goToPage(pageNumber);
-      }
+  const handleTreeSelect = useCallback((_selectedKeys: React.Key[], info: { node: TreeDataNode & { pageNumber?: number } }) => {
+    const pageNumber = info.node.pageNumber;
+    if (pageNumber && !isNaN(pageNumber)) {
+      goToPage(pageNumber);
     }
   }, [goToPage]);
 
@@ -266,7 +276,6 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
       <PdfPage
         key={pageInfo.pageNumber}
         pageNumber={pageInfo.pageNumber}
-        scale={scale}
         width={width}
         height={height - 16} // 减去 margin
         pdfDocument={{ getPage: pdfParser.getPage.bind(pdfParser) }}
@@ -365,7 +374,7 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
                 <Tree
                   treeData={outlineToTreeData(pdfData?.outline || [])}
                   onSelect={handleTreeSelect}
-                  selectedKeys={[`page-${currentPage}`]}
+
                   defaultExpandAll
                   style={{ backgroundColor: 'transparent' }}
                 />
@@ -400,10 +409,6 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
             backgroundColor: token.colorFillTertiary,
             position: 'relative',
           }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
         >
           {loading ? (
             <div style={{ 
@@ -420,7 +425,7 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
               style={{
                 height: '100%',
                 overflow: 'auto',
-                cursor: isDragging ? 'grabbing' : 'grab',
+                cursor: 'default',
               }}
             >
               <VList
