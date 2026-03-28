@@ -4,8 +4,19 @@ import { Upload, Button, message, Modal, Typography, theme } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { epubParser } from '../utils/epubParser';
+import { pdfParser } from '../utils/pdfParser';
 import { addBook } from '../db';
-import type { Book } from '../types';
+import type { Book, BookMetadata } from '../types';
+
+type BookFormat = 'epub' | 'pdf';
+
+interface PreviewBook {
+  title: string;
+  author: string;
+  cover?: string;
+  file: File;
+  format: BookFormat;
+}
 
 const { Text, Title } = Typography;
 const { useToken } = theme;
@@ -20,56 +31,108 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
   const [uploading, setUploading] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [previewBook, setPreviewBook] = useState<{
-    title: string;
-    author: string;
-    cover?: string;
-    file: File;
-  } | null>(null);
+  const [previewBook, setPreviewBook] = useState<PreviewBook | null>(null);
+
+  const getFileFormat = (file: File): BookFormat | null => {
+    const isEpub = file.type === 'application/epub+zip' || file.name.endsWith('.epub');
+    const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+    
+    if (isEpub) return 'epub';
+    if (isPdf) return 'pdf';
+    return null;
+  };
 
   const handleBeforeUpload = useCallback((file: File) => {
-    const isEpub = file.type === 'application/epub+zip' || file.name.endsWith('.epub');
-    if (!isEpub) {
-      message.error(t('book.selectEpub'));
+    const format = getFileFormat(file);
+    
+    if (!format) {
+      message.error(t('book.selectValidFile'));
       return Upload.LIST_IGNORE;
     }
     
-    // Validate EPUB format
-    epubParser.validate(file).then(({ valid, error }) => {
-      if (!valid) {
-        message.error(error || t('book.invalidEpub'));
-        setFileList([]);
-      } else {
-        // Parse metadata for preview
-        epubParser.load(file).then((parsed) => {
-          setPreviewBook({
-            title: parsed.metadata.title,
-            author: parsed.metadata.author,
-            cover: parsed.cover,
-            file,
-          });
-          setPreviewVisible(true);
-        }).catch((err) => {
-          message.error(`${t('book.parseFailed')}: ${err.message}`);
+    // Validate file format
+    const validateAndParse = async () => {
+      try {
+        let valid = false;
+        let error: string | undefined;
+        
+        if (format === 'epub') {
+          const result = await epubParser.validate(file);
+          valid = result.valid;
+          error = result.error;
+        } else {
+          const result = await pdfParser.validate(file);
+          valid = result.valid;
+          error = result.error;
+        }
+        
+        if (!valid) {
+          message.error(error || t('book.invalidFile'));
           setFileList([]);
+          return;
+        }
+        
+        // Parse metadata for preview
+        let title = 'Unknown Title';
+        let author = 'Unknown Author';
+        let cover: string | undefined;
+        
+        if (format === 'epub') {
+          const parsed = await epubParser.load(file);
+          title = parsed.metadata.title;
+          author = parsed.metadata.author;
+          cover = parsed.cover;
+        } else {
+          const parsed = await pdfParser.load(file);
+          title = parsed.metadata.title;
+          author = parsed.metadata.author;
+          cover = parsed.cover;
+        }
+        
+        setPreviewBook({
+          title,
+          author,
+          cover,
+          file,
+          format,
         });
+        setPreviewVisible(true);
+      } catch (err) {
+        message.error(`${t('book.parseFailed')}: ${err instanceof Error ? err.message : String(err)}`);
+        setFileList([]);
       }
-    });
+    };
     
+    validateAndParse();
     return false;
-  }, []);
+  }, [t]);
 
   const handleImport = useCallback(async () => {
     if (!previewBook) return;
     
     setUploading(true);
     try {
-      const parsed = await epubParser.load(previewBook.file);
+      let metadata: BookMetadata;
+      let cover: string | undefined;
+      
+      if (previewBook.format === 'epub') {
+        const parsed = await epubParser.load(previewBook.file);
+        metadata = parsed.metadata;
+        cover = parsed.cover;
+      } else {
+        const parsed = await pdfParser.load(previewBook.file);
+        metadata = {
+          title: parsed.metadata.title,
+          author: parsed.metadata.author,
+          description: parsed.metadata.subject,
+        };
+        cover = parsed.cover;
+      }
       
       const book: Book = {
         id: crypto.randomUUID(),
-        metadata: parsed.metadata,
-        cover: parsed.cover,
+        metadata,
+        cover,
         file: previewBook.file,
         addedAt: new Date(),
         updatedAt: new Date(),
@@ -86,7 +149,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
     } finally {
       setUploading(false);
     }
-  }, [previewBook, onImport]);
+  }, [previewBook, onImport, t]);
 
   return (
     <>
@@ -94,7 +157,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
         fileList={fileList}
         onChange={({ fileList: newFileList }) => setFileList(newFileList)}
         beforeUpload={handleBeforeUpload}
-        accept=".epub,application/epub+zip"
+        accept=".epub,.pdf,application/epub+zip,application/pdf"
         maxCount={1}
         showUploadList={false}
       >

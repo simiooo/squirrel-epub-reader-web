@@ -25,7 +25,9 @@
     "importToLocal": "Import to Local",
     "localOnlyTip": "Books will only be saved locally on your device. Use sync feature after import if you want to upload to cloud storage",
     "selectEpub": "Please select EPUB format file",
+    "selectValidFile": "Please select EPUB or PDF format file",
     "invalidEpub": "Invalid EPUB file",
+    "invalidFile": "Invalid file",
     "parseFailed": "Parse failed",
     "cover": "Cover",
     "noCover": "No Cover",
@@ -39,7 +41,7 @@
     "notRead": "Not Read",
     "addedAt": "Added at",
     "loadFailed": "Failed to load books",
-    "noBooks": "No books yet, please import EPUB files",
+    "noBooks": "No books yet, please import EPUB or PDF files",
     "loadBookFailed": "Failed to load book",
     "bookNotFound": "Book not found",
     "bookNotExist": "Book does not exist"
@@ -54,7 +56,10 @@
     "chapterProgress": "Chapter {{current}} / {{total}}",
     "readProgress": "{{progress}}% Read",
     "noContent": "No Content",
-    "chapterNotFound": "Target chapter not found"
+    "chapterNotFound": "Target chapter not found",
+    "toc": "Table of Contents",
+    "noToc": "No Table of Contents",
+    "page": "Page"
   },
   "gesture": {
     "title": "Gesture Control",

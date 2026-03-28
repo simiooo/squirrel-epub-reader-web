@@ -25,7 +25,9 @@
     "importToLocal": "导入到本地",
     "localOnlyTip": "书籍将仅保存在您的设备本地，如需同步到云端，请在导入后使用同步功能",
     "selectEpub": "请选择EPUB格式的文件",
+    "selectValidFile": "请选择EPUB或PDF格式的文件",
     "invalidEpub": "无效的EPUB文件",
+    "invalidFile": "无效的文件",
     "parseFailed": "解析失败",
     "cover": "封面",
     "noCover": "暂无封面",
@@ -39,7 +41,7 @@
     "notRead": "未读",
     "addedAt": "添加于",
     "loadFailed": "加载书籍失败",
-    "noBooks": "暂无书籍，请导入EPUB文件",
+    "noBooks": "暂无书籍，请导入EPUB或PDF文件",
     "loadBookFailed": "加载书籍失败",
     "bookNotFound": "书籍未找到",
     "bookNotExist": "书籍不存在"
@@ -54,7 +56,10 @@
     "chapterProgress": "第 {{current}} / {{total}} 章",
     "readProgress": "{{progress}}% 已读",
     "noContent": "暂无内容",
-    "chapterNotFound": "未找到目标章节"
+    "chapterNotFound": "未找到目标章节",
+    "toc": "目录",
+    "noToc": "暂无目录",
+    "page": "页码"
   },
   "gesture": {
     "title": "手势控制",
