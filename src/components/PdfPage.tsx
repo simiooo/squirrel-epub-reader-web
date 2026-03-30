@@ -37,6 +37,10 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({
   // 追踪上一次的 isVisible 状态
   const prevIsVisibleRef = useRef(false);
 
+  // 存储 PDF 渲染任务用于取消
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderTaskRef = useRef<any>(null);
+  
   // 存储 TextLayer 实例用于清理
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const textLayerInstanceRef = useRef<any>(null);
@@ -152,14 +156,28 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({
       // 缩放 context 以匹配 HiDPI
       ctx.scale(pixelRatio, pixelRatio);
 
+      // 取消之前未完成的渲染任务
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch {
+          // ignore cancel errors
+        }
+        renderTaskRef.current = null;
+      }
+
       // 渲染 PDF 页面
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const renderTask = (page as any).render({
         canvasContext: ctx,
         viewport: scaledViewport,
       });
+      
+      // 保存当前渲染任务
+      renderTaskRef.current = renderTask;
 
       await renderTask.promise;
+      renderTaskRef.current = null;
 
       // 渲染文本层
       if (isMountedRef.current) {
@@ -188,6 +206,17 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({
     
     // 当 width 或 height 变化时，重置渲染状态
     hasRenderedRef.current = false;
+    
+    // 取消正在进行的渲染任务
+    if (renderTaskRef.current) {
+      try {
+        renderTaskRef.current.cancel();
+      } catch {
+        // ignore cancel errors
+      }
+      renderTaskRef.current = null;
+    }
+    
     // 清理画布
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
@@ -235,6 +264,15 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({
       isMountedRef.current = false;
       if (renderTimeoutRef.current) {
         clearTimeout(renderTimeoutRef.current);
+      }
+      // 取消正在进行的 PDF 渲染任务
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch {
+          // ignore cancel errors
+        }
+        renderTaskRef.current = null;
       }
       // 清理 TextLayer 实例
       if (textLayerInstanceRef.current) {
