@@ -4,7 +4,7 @@ import { message, Modal } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import './index.css';
 import App from './App.tsx';
-import { fixCloudBookCacheStatus } from './db/index.ts';
+import { fixCloudBookCacheStatus, migrateBookChecksums } from './db/index.ts';
 
 // Register service worker and handle updates
 if ('serviceWorker' in navigator) {
@@ -48,8 +48,11 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 启动时修复云端书籍缓存状态
-fixCloudBookCacheStatus().catch(console.error);
+// 启动时执行数据修复
+Promise.all([
+  fixCloudBookCacheStatus(),
+  migrateBookChecksums(),
+]).catch(console.error);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

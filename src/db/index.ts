@@ -272,3 +272,36 @@ export async function fixCloudBookCacheStatus(): Promise<number> {
 
   return fixedCount;
 }
+
+/**
+ * 为已有书籍补全 checksum 字段
+ * 数据库升级后，旧数据可能没有 checksum，需要计算并补充
+ * @returns 更新的书籍数量
+ */
+export async function migrateBookChecksums(): Promise<number> {
+  const allBooks = await getAllBooks();
+  let migratedCount = 0;
+
+  // 动态导入 generateChecksum 以避免循环依赖
+  const { generateChecksum } = await import('../utils/bookHash');
+
+  for (const book of allBooks) {
+    if (!book.checksum) {
+      try {
+        const checksum = await generateChecksum(book.file);
+        book.checksum = checksum;
+        await updateBook(book);
+        migratedCount++;
+        console.log(`Migrated checksum for book: ${book.metadata.title} (${book.id})`);
+      } catch (error) {
+        console.error(`Failed to migrate checksum for book ${book.id}:`, error);
+      }
+    }
+  }
+
+  if (migratedCount > 0) {
+    console.log(`Migrated checksum for ${migratedCount} book(s)`);
+  }
+
+  return migratedCount;
+}
