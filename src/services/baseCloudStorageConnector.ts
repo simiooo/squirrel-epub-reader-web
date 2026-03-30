@@ -42,17 +42,39 @@ export abstract class BaseCloudStorageConnector implements CloudStorageConnector
 
   // ==================== 书籍操作（抽象方法）====================
   
+  abstract uploadBookWithParts(
+    bookId: string,
+    bookData: Blob,
+    coverData: Blob | null,
+    metadata: CloudBookMetadata,
+    fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata
+  ): Promise<CloudBookMetadata>;
+  
   abstract uploadBook(
     bookId: string,
     fileData: Blob,
     metadata: CloudBookMetadata
   ): Promise<CloudBookMetadata>;
   
+  abstract downloadBookWithParts(metadata: CloudBookMetadata): Promise<{
+    bookData: Blob;
+    coverData: Blob | null;
+    fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata;
+  }>;
+  
   abstract downloadBook(remotePath: string): Promise<Blob>;
   
   abstract deleteBook(remotePath: string): Promise<void>;
   
   abstract listBooks(): Promise<CloudBookMetadata[]>;
+  
+  abstract downloadBookMetadata(metadataPath: string): Promise<import('../types/cloudStorage').CloudBookFullMetadata>;
+  
+  abstract checkBookPartsExists(metadata: CloudBookMetadata): Promise<{
+    metadata: boolean;
+    cover: boolean;
+    book: boolean;
+  }>;
   
   abstract bookExists(remotePath: string): Promise<boolean>;
 

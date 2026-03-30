@@ -46,10 +46,20 @@ export interface CloudBookMetadata {
   bookId: string;
   /** 书籍在云端的路径 */
   remotePath: string;
+  /** 封面在云端的路径 */
+  coverPath?: string;
+  /** 元信息文件在云端的路径 */
+  metadataPath: string;
   /** 文件大小（字节） */
   size: number;
+  /** 封面文件大小（字节） */
+  coverSize?: number;
   /** 文件校验和 */
   checksum: string;
+  /** 封面校验和 */
+  coverChecksum?: string;
+  /** 元信息校验和 */
+  metadataChecksum?: string;
   /** 云端最后修改时间 */
   remoteModifiedAt: Date;
   /** 本地最后修改时间 */
@@ -58,6 +68,12 @@ export interface CloudBookMetadata {
   syncStatus: SyncStatus;
   /** 版本号（用于冲突解决） */
   version: number;
+  /** 各部分同步状态 */
+  partsSyncStatus?: {
+    metadata: 'synced' | 'pending' | 'missing';
+    cover: 'synced' | 'pending' | 'missing';
+    book: 'synced' | 'pending' | 'missing';
+  };
 }
 
 /**
@@ -70,6 +86,52 @@ export type SyncStatus =
   | 'error'       // 同步错误
   | 'local_only'  // 仅本地存在
   | 'remote_only'; // 仅云端存在
+
+/**
+ * 书籍完整元数据 - 存储在云端
+ */
+export interface CloudBookFullMetadata {
+  /** 书籍ID */
+  bookId: string;
+  /** 书籍元信息 */
+  metadata: {
+    title: string;
+    author: string;
+    description?: string;
+    language?: string;
+    publisher?: string;
+    publicationDate?: string;
+    identifier?: string;
+  };
+  /** 封面图片路径（相对于存储根目录） */
+  coverPath?: string;
+  /** 书籍文件路径（相对于存储根目录） */
+  bookPath: string;
+  /** 元信息文件路径（相对于存储根目录） */
+  metadataPath?: string;
+  /** 文件大小（字节） */
+  size: number;
+  /** 封面大小（字节） */
+  coverSize?: number;
+  /** 文件校验和 */
+  checksum: string;
+  /** 封面校验和 */
+  coverChecksum?: string;
+  /** 元信息校验和 */
+  metadataChecksum?: string;
+  /** 云端最后修改时间 */
+  remoteModifiedAt: string;
+  /** 本地最后修改时间 */
+  localModifiedAt: string;
+  /** 版本号 */
+  version: number;
+  /** 各部分同步状态 */
+  partsSyncStatus: {
+    metadata: 'synced' | 'pending' | 'missing';
+    cover: 'synced' | 'pending' | 'missing';
+    book: 'synced' | 'pending' | 'missing';
+  };
+}
 
 /**
  * 阅读进度同步数据
@@ -215,7 +277,24 @@ export interface CloudStorageConnector {
   // ==================== 书籍操作 ====================
   
   /**
-   * 上传书籍到云端
+   * 上传书籍到云端（分离存储版本）
+   * @param bookId 书籍ID
+   * @param bookData 书籍文件数据
+   * @param coverData 封面图片数据（可选）
+   * @param metadata 书籍完整元数据
+   * @param fullMetadata 书籍完整元信息对象
+   * @returns 云端书籍元数据
+   */
+  uploadBookWithParts(
+    bookId: string,
+    bookData: Blob,
+    coverData: Blob | null,
+    metadata: CloudBookMetadata,
+    fullMetadata: CloudBookFullMetadata
+  ): Promise<CloudBookMetadata>;
+  
+  /**
+   * 上传书籍到云端（兼容旧版本）
    * @param bookId 书籍ID
    * @param fileData 书籍文件数据
    * @param metadata 书籍元数据
@@ -226,6 +305,17 @@ export interface CloudStorageConnector {
     fileData: Blob,
     metadata: CloudBookMetadata
   ): Promise<CloudBookMetadata>;
+  
+  /**
+   * 从云端下载书籍（分离存储版本）
+   * @param metadata 云端书籍元数据
+   * @returns 包含书籍文件、封面和元信息的对象
+   */
+  downloadBookWithParts(metadata: CloudBookMetadata): Promise<{
+    bookData: Blob;
+    coverData: Blob | null;
+    fullMetadata: CloudBookFullMetadata;
+  }>;
   
   /**
    * 从云端下载书籍
@@ -241,10 +331,28 @@ export interface CloudStorageConnector {
   deleteBook(remotePath: string): Promise<void>;
   
   /**
-   * 获取云端书籍列表
+   * 获取云端书籍列表（包含完整元信息）
    * @returns 云端书籍元数据列表
    */
   listBooks(): Promise<CloudBookMetadata[]>;
+  
+  /**
+   * 获取云端书籍完整元信息
+   * @param metadataPath 元信息文件路径
+   * @returns 完整元信息对象
+   */
+  downloadBookMetadata(metadataPath: string): Promise<CloudBookFullMetadata>;
+  
+  /**
+   * 检查云端书籍各部分是否存在
+   * @param metadata 云端书籍元数据
+   * @returns 各部分是否存在
+   */
+  checkBookPartsExists(metadata: CloudBookMetadata): Promise<{
+    metadata: boolean;
+    cover: boolean;
+    book: boolean;
+  }>;
   
   /**
    * 检查云端书籍是否存在

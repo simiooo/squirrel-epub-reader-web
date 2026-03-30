@@ -578,13 +578,23 @@ export class GoogleDriveConnector extends BaseCloudStorageConnector implements C
 
         books.push({
           bookId: meta.bookId,
-          remotePath: meta.bookId,
+          remotePath: meta.bookPath || file.id,
+          coverPath: meta.coverPath,
+          metadataPath: file.id,
           size: meta.size,
+          coverSize: meta.coverSize,
           checksum: meta.checksum,
+          coverChecksum: meta.coverChecksum,
+          metadataChecksum: meta.metadataChecksum,
           localModifiedAt: new Date(meta.localModifiedAt),
           remoteModifiedAt: new Date(meta.remoteModifiedAt),
           syncStatus: 'synced',
           version: meta.version,
+          partsSyncStatus: meta.partsSyncStatus || {
+            metadata: 'synced',
+            cover: meta.coverPath ? 'synced' : 'missing',
+            book: 'synced',
+          },
         });
       } catch (error) {
         console.error(`Failed to load metadata for ${file.name}:`, error);
@@ -732,5 +742,185 @@ export class GoogleDriveConnector extends BaseCloudStorageConnector implements C
     const bookmarks = await this.downloadBookmarks(bookId);
     const filtered = bookmarks.filter(b => b.id !== bookmarkId);
     await this.uploadBookmarks(bookId, filtered);
+  }
+
+  /**
+   * 上传书籍到云端（分离存储版本）
+   */
+  async uploadBookWithParts(
+    bookId: string,
+    bookData: Blob,
+    coverData: Blob | null,
+    metadata: CloudBookMetadata,
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata
+  ): Promise<CloudBookMetadata> {
+    await this.ensureValidToken();
+    const rootFolderId = await this.ensureRootFolder();
+
+    const booksFolderId = await this.createSubfolder('books', rootFolderId);
+    const metadataFolderId = await this.createSubfolder('metadata', rootFolderId);
+    const coversFolderId = coverData ? await this.createSubfolder('covers', rootFolderId) : undefined;
+
+    // 1. 上传书籍文件
+    const existingBook = await this.findFile(`${bookId}.epub`, booksFolderId);
+    if (existingBook) {
+      await this.deleteFile(existingBook.id);
+    }
+    const bookFileId = await this.uploadFile(
+      `${bookId}.epub`,
+      booksFolderId,
+      bookData,
+      'application/epub+zip'
+    );
+
+    // 2. 上传封面（如果有）
+    let coverFileId: string | undefined;
+    if (coverData && coversFolderId) {
+      const existingCover = await this.findFile(`${bookId}.cover`, coversFolderId);
+      if (existingCover) {
+        await this.deleteFile(existingCover.id);
+      }
+      coverFileId = await this.uploadFile(
+        `${bookId}.cover`,
+        coversFolderId,
+        coverData,
+        'image/jpeg'
+      );
+    }
+
+    // 3. 准备完整元数据
+    const completeMetadata: import('../../types/cloudStorage').CloudBookFullMetadata = {
+      ...fullMetadata,
+      bookPath: bookFileId,
+      coverPath: coverFileId,
+      size: bookData.size,
+      coverSize: coverData?.size,
+      checksum: await this.generateChecksum(bookData),
+      coverChecksum: coverData ? await this.generateChecksum(coverData) : undefined,
+      remoteModifiedAt: new Date().toISOString(),
+      localModifiedAt: fullMetadata.localModifiedAt,
+      version: fullMetadata.version,
+      partsSyncStatus: {
+        metadata: 'synced',
+        cover: coverData ? 'synced' : 'missing',
+        book: 'synced',
+      },
+    };
+
+    // 4. 上传元数据
+    const existingMeta = await this.findFile(`${bookId}.json`, metadataFolderId);
+    if (existingMeta) {
+      await this.deleteFile(existingMeta.id);
+    }
+    const metadataFileId = await this.uploadFile(
+      `${bookId}.json`,
+      metadataFolderId,
+      new Blob([JSON.stringify(completeMetadata)], { type: 'application/json' }),
+      'application/json'
+    );
+
+    return {
+      ...metadata,
+      remotePath: bookFileId,
+      coverPath: coverFileId,
+      metadataPath: metadataFileId,
+      checksum: completeMetadata.checksum,
+      coverChecksum: completeMetadata.coverChecksum,
+      size: bookData.size,
+      coverSize: coverData?.size,
+      partsSyncStatus: completeMetadata.partsSyncStatus,
+    };
+  }
+
+  /**
+   * 下载书籍的所有部分
+   */
+  async downloadBookWithParts(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    bookData: Blob;
+    coverData: Blob | null;
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata;
+  }> {
+    // 1. 下载完整元信息
+    const fullMetadata = await this.downloadBookMetadata(metadata.metadataPath);
+
+    // 2. 下载书籍文件
+    const bookData = await this.downloadFile(metadata.remotePath);
+
+    // 3. 下载封面（如果有）
+    let coverData: Blob | null = null;
+    if (metadata.coverPath) {
+      try {
+        coverData = await this.downloadFile(metadata.coverPath);
+      } catch (error) {
+        console.warn(`Failed to download cover for ${metadata.bookId}:`, error);
+      }
+    }
+
+    return {
+      bookData,
+      coverData,
+      fullMetadata,
+    };
+  }
+
+  /**
+   * 下载完整元信息
+   */
+  async downloadBookMetadata(
+    metadataPath: string
+  ): Promise<import('../../types/cloudStorage').CloudBookFullMetadata> {
+    const content = await this.downloadFile(metadataPath);
+    const text = await content.text();
+    const meta = JSON.parse(text);
+
+    return {
+      ...meta,
+      localModifiedAt: meta.localModifiedAt,
+      remoteModifiedAt: meta.remoteModifiedAt,
+    };
+  }
+
+  /**
+   * 检查书籍各部分是否存在
+   */
+  async checkBookPartsExists(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    metadata: boolean;
+    cover: boolean;
+    book: boolean;
+  }> {
+    const results = {
+      metadata: false,
+      cover: false,
+      book: false,
+    };
+
+    try {
+      await this.downloadFile(metadata.metadataPath);
+      results.metadata = true;
+    } catch {
+      results.metadata = false;
+    }
+
+    if (metadata.coverPath) {
+      try {
+        await this.downloadFile(metadata.coverPath);
+        results.cover = true;
+      } catch {
+        results.cover = false;
+      }
+    }
+
+    try {
+      await this.downloadFile(metadata.remotePath);
+      results.book = true;
+    } catch {
+      results.book = false;
+    }
+
+    return results;
   }
 }

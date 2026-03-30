@@ -248,6 +248,7 @@ export const HomePage: React.FC = () => {
                       onDelete={handleDeleteCloudBook}
                       cachedBookIds={cachedBookIds}
                       downloadingIds={downloadingIds}
+                      refreshTrigger={refreshTrigger}
                     />
                   )}
                 </Panel>

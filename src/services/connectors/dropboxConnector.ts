@@ -458,13 +458,23 @@ export class DropboxConnector extends BaseCloudStorageConnector implements Cloud
 
         books.push({
           bookId: meta.bookId,
-          remotePath: `${this.rootPath}/books/${meta.bookId}.epub`,
+          remotePath: meta.bookPath || `${this.rootPath}/books/${meta.bookId}.epub`,
+          coverPath: meta.coverPath,
+          metadataPath: entry.path,
           size: meta.size,
+          coverSize: meta.coverSize,
           checksum: meta.checksum,
+          coverChecksum: meta.coverChecksum,
+          metadataChecksum: meta.metadataChecksum,
           localModifiedAt: new Date(meta.localModifiedAt),
           remoteModifiedAt: new Date(meta.remoteModifiedAt),
           syncStatus: 'synced',
           version: meta.version,
+          partsSyncStatus: meta.partsSyncStatus || {
+            metadata: 'synced',
+            cover: meta.coverPath ? 'synced' : 'missing',
+            book: 'synced',
+          },
         });
       } catch (error) {
         console.error(`Failed to load metadata for ${entry.name}:`, error);
@@ -558,5 +568,157 @@ export class DropboxConnector extends BaseCloudStorageConnector implements Cloud
     const bookmarks = await this.downloadBookmarks(bookId);
     const filtered = bookmarks.filter(b => b.id !== bookmarkId);
     await this.uploadBookmarks(bookId, filtered);
+  }
+
+  /**
+   * 上传书籍到云端（分离存储版本）
+   */
+  async uploadBookWithParts(
+    bookId: string,
+    bookData: Blob,
+    coverData: Blob | null,
+    metadata: CloudBookMetadata,
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata
+  ): Promise<CloudBookMetadata> {
+    const bookPath = `${this.rootPath}/books/${bookId}.epub`;
+    const metadataPath = `${this.rootPath}/metadata/${bookId}.json`;
+    const coverPath = coverData ? `${this.rootPath}/covers/${bookId}.cover` : undefined;
+
+    // 1. 上传书籍文件
+    await this.uploadFile(bookPath, bookData);
+
+    // 2. 上传封面（如果有）
+    if (coverData && coverPath) {
+      await this.uploadFile(coverPath, coverData);
+    }
+
+    // 3. 准备完整元数据
+    const completeMetadata: import('../../types/cloudStorage').CloudBookFullMetadata = {
+      ...fullMetadata,
+      bookPath,
+      coverPath,
+      size: bookData.size,
+      coverSize: coverData?.size,
+      checksum: await this.generateChecksum(bookData),
+      coverChecksum: coverData ? await this.generateChecksum(coverData) : undefined,
+      remoteModifiedAt: new Date().toISOString(),
+      localModifiedAt: fullMetadata.localModifiedAt,
+      version: fullMetadata.version,
+      partsSyncStatus: {
+        metadata: 'synced',
+        cover: coverData ? 'synced' : 'missing',
+        book: 'synced',
+      },
+    };
+
+    // 4. 上传元数据
+    await this.uploadFile(
+      metadataPath,
+      new Blob([JSON.stringify(completeMetadata)], { type: 'application/json' })
+    );
+
+    return {
+      ...metadata,
+      remotePath: bookPath,
+      coverPath,
+      metadataPath,
+      checksum: completeMetadata.checksum,
+      coverChecksum: completeMetadata.coverChecksum,
+      size: bookData.size,
+      coverSize: coverData?.size,
+      partsSyncStatus: completeMetadata.partsSyncStatus,
+    };
+  }
+
+  /**
+   * 下载书籍的所有部分
+   */
+  async downloadBookWithParts(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    bookData: Blob;
+    coverData: Blob | null;
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata;
+  }> {
+    // 1. 下载完整元信息
+    const fullMetadata = await this.downloadBookMetadata(metadata.metadataPath);
+
+    // 2. 下载书籍文件
+    const bookData = await this.downloadFile(metadata.remotePath);
+
+    // 3. 下载封面（如果有）
+    let coverData: Blob | null = null;
+    if (metadata.coverPath) {
+      try {
+        coverData = await this.downloadFile(metadata.coverPath);
+      } catch (error) {
+        console.warn(`Failed to download cover for ${metadata.bookId}:`, error);
+      }
+    }
+
+    return {
+      bookData,
+      coverData,
+      fullMetadata,
+    };
+  }
+
+  /**
+   * 下载完整元信息
+   */
+  async downloadBookMetadata(
+    metadataPath: string
+  ): Promise<import('../../types/cloudStorage').CloudBookFullMetadata> {
+    const data = await this.downloadFile(metadataPath);
+    const text = await data.text();
+    const meta = JSON.parse(text);
+
+    return {
+      ...meta,
+      localModifiedAt: meta.localModifiedAt,
+      remoteModifiedAt: meta.remoteModifiedAt,
+    };
+  }
+
+  /**
+   * 检查书籍各部分是否存在
+   */
+  async checkBookPartsExists(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    metadata: boolean;
+    cover: boolean;
+    book: boolean;
+  }> {
+    const results = {
+      metadata: false,
+      cover: false,
+      book: false,
+    };
+
+    try {
+      await this.downloadFile(metadata.metadataPath);
+      results.metadata = true;
+    } catch {
+      results.metadata = false;
+    }
+
+    if (metadata.coverPath) {
+      try {
+        await this.downloadFile(metadata.coverPath);
+        results.cover = true;
+      } catch {
+        results.cover = false;
+      }
+    }
+
+    try {
+      await this.downloadFile(metadata.remotePath);
+      results.book = true;
+    } catch {
+      results.book = false;
+    }
+
+    return results;
   }
 }

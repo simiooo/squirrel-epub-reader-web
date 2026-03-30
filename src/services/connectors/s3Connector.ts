@@ -162,55 +162,121 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     }
   }
 
-  async uploadBook(
+  async uploadBookWithParts(
     bookId: string,
-    fileData: Blob,
-    metadata: CloudBookMetadata
+    bookData: Blob,
+    coverData: Blob | null,
+    metadata: CloudBookMetadata,
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata
   ): Promise<CloudBookMetadata> {
     if (!this.s3Client) {
       throw new Error('S3 client not initialized');
     }
 
-    const key = `${this.rootPath}/books/${bookId}.epub`;
-    const arrayBuffer = await fileData.arrayBuffer();
-    const checksum = await this.generateChecksum(fileData);
+    const bookKey = `${this.rootPath}/books/${bookId}.epub`;
+    const metadataKey = `${this.rootPath}/metadata/${bookId}.json`;
+    const coverKey = coverData ? `${this.rootPath}/covers/${bookId}.cover` : undefined;
 
-    // 上传文件
-    const putCommand = new PutObjectCommand({
+    const bookChecksum = await this.generateChecksum(bookData);
+    const metadataChecksum = await this.generateChecksum(new Blob([JSON.stringify(fullMetadata)]));
+    let coverChecksum: string | undefined;
+
+    // 1. 上传书籍文件
+    const bookArrayBuffer = await bookData.arrayBuffer();
+    const bookPutCommand = new PutObjectCommand({
       Bucket: this.bucket,
-      Key: key,
-      Body: new Uint8Array(arrayBuffer),
+      Key: bookKey,
+      Body: new Uint8Array(bookArrayBuffer),
       ContentType: 'application/epub+zip',
+      Metadata: {
+        'book-id': bookId,
+        'checksum': bookChecksum,
+      },
     });
+    await this.s3Client.send(bookPutCommand);
 
-    await this.s3Client.send(putCommand);
+    // 2. 上传封面（如果有）
+    if (coverData && coverKey) {
+      const coverArrayBuffer = await coverData.arrayBuffer();
+      coverChecksum = await this.generateChecksum(coverData);
+      const coverPutCommand = new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: coverKey,
+        Body: new Uint8Array(coverArrayBuffer),
+        ContentType: 'image/jpeg',
+        Metadata: {
+          'book-id': bookId,
+          'checksum': coverChecksum,
+        },
+      });
+      await this.s3Client.send(coverPutCommand);
+    }
 
-    // 上传元数据
-    const metaDataKey = `${this.rootPath}/metadata/${bookId}.json`;
-    const metaData = {
-      bookId,
-      checksum,
-      size: fileData.size,
+    // 3. 上传完整元信息
+    const completeMetadata: import('../../types/cloudStorage').CloudBookFullMetadata = {
+      ...fullMetadata,
+      bookPath: bookKey,
+      coverPath: coverKey,
+      size: bookData.size,
+      coverSize: coverData?.size,
+      checksum: bookChecksum,
+      coverChecksum,
+      metadataChecksum,
       remoteModifiedAt: new Date().toISOString(),
-      localModifiedAt: metadata.localModifiedAt.toISOString(),
-      version: 1,
+      localModifiedAt: fullMetadata.localModifiedAt,
+      version: fullMetadata.version,
+      partsSyncStatus: {
+        metadata: 'synced',
+        cover: coverData ? 'synced' : 'missing',
+        book: 'synced',
+      },
     };
 
-    const metaPutCommand = new PutObjectCommand({
+    const metadataPutCommand = new PutObjectCommand({
       Bucket: this.bucket,
-      Key: metaDataKey,
-      Body: JSON.stringify(metaData),
+      Key: metadataKey,
+      Body: JSON.stringify(completeMetadata),
       ContentType: 'application/json',
     });
-
-    await this.s3Client.send(metaPutCommand);
+    await this.s3Client.send(metadataPutCommand);
 
     return {
       ...metadata,
-      remotePath: key,
-      checksum,
-      size: fileData.size,
+      remotePath: bookKey,
+      coverPath: coverKey,
+      metadataPath: metadataKey,
+      checksum: bookChecksum,
+      coverChecksum,
+      metadataChecksum,
+      size: bookData.size,
+      coverSize: coverData?.size,
+      partsSyncStatus: completeMetadata.partsSyncStatus,
     };
+  }
+
+  async uploadBook(
+    bookId: string,
+    fileData: Blob,
+    metadata: CloudBookMetadata
+  ): Promise<CloudBookMetadata> {
+    // 调用新的分离存储方法，但不提供封面和完整元信息
+    const fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata = {
+      bookId,
+      metadata: { title: 'Unknown', author: 'Unknown' },
+      bookPath: '',
+      size: fileData.size,
+      checksum: '',
+      remoteModifiedAt: new Date().toISOString(),
+      localModifiedAt: metadata.localModifiedAt.toISOString(),
+      version: 1,
+      partsSyncStatus: {
+        metadata: 'pending',
+        cover: 'missing',
+        book: 'synced',
+      },
+    };
+
+    return this.uploadBookWithParts(bookId, fileData, null, metadata, fullMetadata);
   }
 
   async downloadBook(remotePath: string): Promise<Blob> {
@@ -308,13 +374,23 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
 
         books.push({
           bookId: meta.bookId,
-          remotePath: `${this.rootPath}/books/${meta.bookId}.epub`,
+          remotePath: meta.bookPath || `${this.rootPath}/books/${meta.bookId}.epub`,
+          coverPath: meta.coverPath,
+          metadataPath: obj.Key,
           size: meta.size,
+          coverSize: meta.coverSize,
           checksum: meta.checksum,
+          coverChecksum: meta.coverChecksum,
+          metadataChecksum: meta.metadataChecksum,
           localModifiedAt: new Date(meta.localModifiedAt),
           remoteModifiedAt: new Date(meta.remoteModifiedAt),
           syncStatus: 'synced',
           version: meta.version,
+          partsSyncStatus: meta.partsSyncStatus || {
+            metadata: 'synced',
+            cover: meta.coverPath ? 'synced' : 'missing',
+            book: 'synced',
+          },
         });
       } catch (error) {
         console.error(`Failed to load metadata for ${obj.Key}:`, error);
@@ -494,5 +570,157 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     const bookmarks = await this.downloadBookmarks(bookId);
     const filtered = bookmarks.filter(b => b.id !== bookmarkId);
     await this.uploadBookmarks(bookId, filtered);
+  }
+
+  /**
+   * 下载书籍的所有部分（书籍文件、封面、元信息）
+   */
+  async downloadBookWithParts(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    bookData: Blob;
+    coverData: Blob | null;
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata;
+  }> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    // 1. 下载完整元信息
+    const fullMetadata = await this.downloadBookMetadata(metadata.metadataPath);
+
+    // 2. 下载书籍文件
+    const bookData = await this.downloadBook(metadata.remotePath);
+
+    // 3. 下载封面（如果有）
+    let coverData: Blob | null = null;
+    if (metadata.coverPath) {
+      try {
+        coverData = await this.downloadCover(metadata.coverPath);
+      } catch (error) {
+        console.warn(`Failed to download cover for ${metadata.bookId}:`, error);
+      }
+    }
+
+    return {
+      bookData,
+      coverData,
+      fullMetadata,
+    };
+  }
+
+  /**
+   * 下载完整元信息
+   */
+  async downloadBookMetadata(
+    metadataPath: string
+  ): Promise<import('../../types/cloudStorage').CloudBookFullMetadata> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: metadataPath,
+    });
+
+    const response = await this.s3Client.send(command);
+
+    if (!response.Body) {
+      throw new Error('Empty metadata response body');
+    }
+
+    const text = await response.Body.transformToString();
+    const meta = JSON.parse(text);
+
+    return {
+      ...meta,
+      localModifiedAt: meta.localModifiedAt,
+      remoteModifiedAt: meta.remoteModifiedAt,
+    };
+  }
+
+  /**
+   * 下载封面图片
+   */
+  private async downloadCover(coverPath: string): Promise<Blob> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: coverPath,
+    });
+
+    const response = await this.s3Client.send(command);
+
+    if (!response.Body) {
+      throw new Error('Empty cover response body');
+    }
+
+    const byteArray = await response.Body.transformToByteArray();
+    return new Blob([byteArray.buffer as ArrayBuffer], { type: 'image/jpeg' });
+  }
+
+  /**
+   * 检查书籍各部分是否存在
+   */
+  async checkBookPartsExists(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    metadata: boolean;
+    cover: boolean;
+    book: boolean;
+  }> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const results = {
+      metadata: false,
+      cover: false,
+      book: false,
+    };
+
+    try {
+      // 检查元信息
+      const metadataCommand = new HeadObjectCommand({
+        Bucket: this.bucket,
+        Key: metadata.metadataPath,
+      });
+      await this.s3Client.send(metadataCommand);
+      results.metadata = true;
+    } catch {
+      results.metadata = false;
+    }
+
+    try {
+      // 检查封面
+      if (metadata.coverPath) {
+        const coverCommand = new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: metadata.coverPath,
+        });
+        await this.s3Client.send(coverCommand);
+        results.cover = true;
+      }
+    } catch {
+      results.cover = false;
+    }
+
+    try {
+      // 检查书籍文件
+      const bookCommand = new HeadObjectCommand({
+        Bucket: this.bucket,
+        Key: metadata.remotePath,
+      });
+      await this.s3Client.send(bookCommand);
+      results.book = true;
+    } catch {
+      results.book = false;
+    }
+
+    return results;
   }
 }

@@ -105,10 +105,11 @@ export async function uploadBookToCloud(
 
     onProgress?.({ stage: 'uploading', progress: 20, message: '正在上传书籍...' });
 
-    // 准备元数据
+    // 准备基础元数据
     const metadata: CloudBookMetadata = {
       bookId,
       remotePath: '',
+      metadataPath: '',
       size: book.file.size,
       checksum,
       remoteModifiedAt: new Date(),
@@ -117,8 +118,51 @@ export async function uploadBookToCloud(
       version: 1,
     };
 
-    // 上传书籍
-    const result = await connectorInstance.uploadBook(bookId, book.file, metadata);
+    // 准备完整元数据
+    const fullMetadata = {
+      bookId,
+      metadata: book.metadata,
+      bookPath: '',
+      size: book.file.size,
+      checksum,
+      remoteModifiedAt: new Date().toISOString(),
+      localModifiedAt: book.updatedAt.toISOString(),
+      version: 1,
+      partsSyncStatus: {
+        metadata: 'synced' as const,
+        cover: book.cover ? 'synced' as const : 'missing' as const,
+        book: 'synced' as const,
+      },
+    };
+
+    // 转换封面为 Blob（如果有）
+    let coverBlob: Blob | null = null;
+    if (book.cover) {
+      try {
+        // base64 转换为 Blob
+        const base64Data = book.cover.split(',')[1];
+        if (base64Data) {
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          coverBlob = new Blob([byteArray], { type: 'image/jpeg' });
+        }
+      } catch (error) {
+        console.warn('Failed to convert cover to blob:', error);
+      }
+    }
+
+    // 使用新的分离存储方法上传
+    const result = await connectorInstance.uploadBookWithParts(
+      bookId,
+      book.file,
+      coverBlob,
+      metadata,
+      fullMetadata
+    );
 
     onProgress?.({ stage: 'processing', progress: 80, message: '正在保存元数据...' });
 
@@ -128,8 +172,13 @@ export async function uploadBookToCloud(
       bookId,
       connectorId: connector.id,
       remotePath: result.remotePath,
+      coverPath: result.coverPath,
+      metadataPath: result.metadataPath,
       size: result.size,
+      coverSize: result.coverSize,
       checksum: result.checksum,
+      coverChecksum: result.coverChecksum,
+      metadataChecksum: result.metadataChecksum,
       remoteModifiedAt: result.remoteModifiedAt.toISOString(),
       localModifiedAt: book.updatedAt.toISOString(),
       syncStatus: 'synced',
@@ -138,6 +187,11 @@ export async function uploadBookToCloud(
       cover: book.cover,
       cached: true,
       cachedAt: new Date().toISOString(),
+      partsSyncStatus: result.partsSyncStatus || {
+        metadata: 'synced',
+        cover: book.cover ? 'synced' : 'missing',
+        book: 'synced',
+      },
     };
 
     await addCloudBook(cloudBook);
@@ -231,29 +285,91 @@ export async function downloadBookFromCloud(
 
     onProgress?.({ stage: 'downloading', progress: 20, message: '正在下载书籍...' });
 
-    // 下载书籍文件
-    const file = await connectorInstance.downloadBook(cloudBook.remotePath);
+    // 准备元数据对象
+    const cloudMetadata: CloudBookMetadata = {
+      bookId: cloudBook.bookId,
+      remotePath: cloudBook.remotePath,
+      coverPath: cloudBook.coverPath,
+      metadataPath: cloudBook.metadataPath || `${connector.settings.rootPath || '/SquirrelReader'}/metadata/${cloudBook.bookId}.json`,
+      size: cloudBook.size,
+      coverSize: cloudBook.coverSize,
+      checksum: cloudBook.checksum,
+      coverChecksum: cloudBook.coverChecksum,
+      metadataChecksum: cloudBook.metadataChecksum,
+      remoteModifiedAt: new Date(cloudBook.remoteModifiedAt),
+      localModifiedAt: new Date(cloudBook.localModifiedAt || cloudBook.remoteModifiedAt),
+      syncStatus: 'synced',
+      version: cloudBook.version,
+      partsSyncStatus: cloudBook.partsSyncStatus,
+    };
+
+    // 检查云端各部分是否存在
+    const partsExists = await connectorInstance.checkBookPartsExists(cloudMetadata);
+    
+    // 使用新的分离存储方法下载
+    const { bookData, coverData, fullMetadata } = await connectorInstance.downloadBookWithParts(cloudMetadata);
+
+    onProgress?.({ stage: 'processing', progress: 60, message: '正在验证数据完整性...' });
+
+    // 验证书籍文件完整性
+    const downloadedChecksum = await generateChecksum(bookData);
+    if (downloadedChecksum !== cloudBook.checksum) {
+      throw new Error('书籍文件校验失败，数据可能已损坏');
+    }
+
+    // 验证封面完整性（如果有）
+    let coverBase64: string | undefined;
+    if (coverData && cloudBook.coverChecksum) {
+      const coverChecksum = await generateChecksum(coverData);
+      if (coverChecksum !== cloudBook.coverChecksum) {
+        console.warn('封面校验失败，将使用默认封面');
+      } else {
+        // 将封面 Blob 转换为 base64
+        coverBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(coverData);
+        });
+      }
+    }
+
+    // 验证元信息完整性
+    if (cloudBook.metadataChecksum) {
+      const metadataBlob = new Blob([JSON.stringify(fullMetadata)]);
+      const metadataChecksum = await generateChecksum(metadataBlob);
+      if (metadataChecksum !== cloudBook.metadataChecksum) {
+        console.warn('元信息校验失败');
+      }
+    }
 
     onProgress?.({ stage: 'processing', progress: 80, message: '正在保存到本地...' });
 
-    // 保存到本地数据库
+    // 组装本地书籍对象，使用云端的完整元信息
     const newBook: Book = {
       id: cloudBook.bookId,
-      metadata: cloudBook.metadata,
-      cover: cloudBook.cover,
-      file,
+      metadata: fullMetadata.metadata || cloudBook.metadata,
+      cover: coverBase64 || cloudBook.cover,
+      file: bookData,
       addedAt: new Date(),
       updatedAt: new Date(),
     };
 
     await addBook(newBook);
 
-    // 更新云端书籍状态
-    await updateCloudBook({
+    // 更新云端书籍状态和同步状态
+    const updatedCloudBook: StoredCloudBook = {
       ...cloudBook,
+      metadata: fullMetadata.metadata || cloudBook.metadata,
+      cover: coverBase64 || cloudBook.cover,
       cached: true,
       cachedAt: new Date().toISOString(),
-    });
+      partsSyncStatus: {
+        metadata: partsExists.metadata ? 'synced' : 'missing',
+        cover: partsExists.cover ? 'synced' : 'missing',
+        book: partsExists.book ? 'synced' : 'missing',
+      },
+    };
+    await updateCloudBook(updatedCloudBook);
 
     onProgress?.({ stage: 'completed', progress: 100, message: '下载完成' });
 
@@ -303,21 +419,64 @@ export async function refreshCloudBooks(
     for (const cloudBook of cloudBooks) {
       const existing = existingMap.get(cloudBook.bookId);
       
+      // 检查各部分是否存在
+      let partsExists = { metadata: false, cover: false, book: false };
+      try {
+        partsExists = await connectorInstance.checkBookPartsExists(cloudBook);
+      } catch (error) {
+        console.warn(`Failed to check book parts for ${cloudBook.bookId}:`, error);
+      }
+      
+      // 如果元信息存在，下载完整元信息
+      let fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata | null = null;
+      if (partsExists.metadata && cloudBook.metadataPath) {
+        try {
+          fullMetadata = await connectorInstance.downloadBookMetadata(cloudBook.metadataPath);
+        } catch (error) {
+          console.warn(`Failed to download metadata for ${cloudBook.bookId}:`, error);
+        }
+      }
+      
+      // 下载封面（如果存在且本地没有）
+      let coverBase64: string | undefined = existing?.cover;
+      if (partsExists.cover && cloudBook.coverPath && !existing?.cover) {
+        try {
+          const coverBlob = await connectorInstance.downloadBook(cloudBook.coverPath);
+          coverBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(coverBlob);
+          });
+        } catch (error) {
+          console.warn(`Failed to download cover for ${cloudBook.bookId}:`, error);
+        }
+      }
+      
       const storedBook: StoredCloudBook = {
         id: existing?.id || generateUUID(),
         bookId: cloudBook.bookId,
         connectorId: connector.id,
         remotePath: cloudBook.remotePath,
+        coverPath: cloudBook.coverPath,
+        metadataPath: cloudBook.metadataPath,
         size: cloudBook.size,
+        coverSize: cloudBook.coverSize,
         checksum: cloudBook.checksum,
+        coverChecksum: cloudBook.coverChecksum,
+        metadataChecksum: cloudBook.metadataChecksum,
         remoteModifiedAt: cloudBook.remoteModifiedAt.toISOString(),
         localModifiedAt: existing?.localModifiedAt || cloudBook.remoteModifiedAt.toISOString(),
         syncStatus: cloudBook.syncStatus,
         version: cloudBook.version,
-        metadata: existing?.metadata || { title: 'Unknown', author: 'Unknown' },
-        cover: existing?.cover,
+        metadata: fullMetadata?.metadata || existing?.metadata || { title: 'Unknown', author: 'Unknown' },
+        cover: coverBase64 || existing?.cover,
         cached: existing?.cached || false,
         cachedAt: existing?.cachedAt,
+        partsSyncStatus: cloudBook.partsSyncStatus || {
+          metadata: partsExists.metadata ? 'synced' : 'missing',
+          cover: partsExists.cover ? 'synced' : 'missing',
+          book: partsExists.book ? 'synced' : 'missing',
+        },
       };
 
       if (existing) {
@@ -382,7 +541,7 @@ export async function syncAllCloudBooks(
   onProgress?: (connectorName: string, progress: SyncProgress) => void
 ): Promise<void> {
   const connectors = await db.connectors.where('authStatus').equals('authenticated').toArray();
-  
+
   for (const connector of connectors) {
     try {
       await refreshCloudBooks(connector, (progress) => {
@@ -391,5 +550,149 @@ export async function syncAllCloudBooks(
     } catch (error) {
       console.error(`Failed to sync connector ${connector.name}:`, error);
     }
+  }
+}
+
+export interface PartialSyncResult {
+  success: boolean;
+  syncedParts: {
+    metadata: boolean;
+    cover: boolean;
+    book: boolean;
+  };
+  error?: string;
+}
+
+/**
+ * 同步云端书籍的缺失部分
+ * 用于处理只同步了部分信息的书籍，进行完整同步
+ */
+export async function syncCloudBookParts(
+  cloudBook: StoredCloudBook,
+  connector: StoredConnector,
+  options: {
+    syncMetadata?: boolean;
+    syncCover?: boolean;
+    syncBook?: boolean;
+  } = {},
+  onProgress?: ProgressCallback
+): Promise<PartialSyncResult> {
+  const { syncMetadata = true, syncCover = true, syncBook = false } = options;
+
+  try {
+    onProgress?.({ stage: 'preparing', progress: 0, message: '正在检查同步状态...' });
+
+    const connectorInstance = getConnectorInstance(connector);
+    if (!connectorInstance) {
+      return { success: false, syncedParts: { metadata: false, cover: false, book: false }, error: '无法创建连接器实例' };
+    }
+
+    if (connectorInstance.getAuthStatus() !== 'authenticated') {
+      return { success: false, syncedParts: { metadata: false, cover: false, book: false }, error: '连接器未认证' };
+    }
+
+    // 准备元数据对象
+    const cloudMetadata: CloudBookMetadata = {
+      bookId: cloudBook.bookId,
+      remotePath: cloudBook.remotePath,
+      coverPath: cloudBook.coverPath,
+      metadataPath: cloudBook.metadataPath || `${connector.settings.rootPath || '/SquirrelReader'}/metadata/${cloudBook.bookId}.json`,
+      size: cloudBook.size,
+      coverSize: cloudBook.coverSize,
+      checksum: cloudBook.checksum,
+      coverChecksum: cloudBook.coverChecksum,
+      metadataChecksum: cloudBook.metadataChecksum,
+      remoteModifiedAt: new Date(cloudBook.remoteModifiedAt),
+      localModifiedAt: new Date(cloudBook.localModifiedAt || cloudBook.remoteModifiedAt),
+      syncStatus: 'synced',
+      version: cloudBook.version,
+      partsSyncStatus: cloudBook.partsSyncStatus,
+    };
+
+    // 检查云端各部分是否存在
+    const partsExists = await connectorInstance.checkBookPartsExists(cloudMetadata);
+    const syncedParts = {
+      metadata: false,
+      cover: false,
+      book: false,
+    };
+
+    let updatedMetadata = { ...cloudBook.metadata };
+    let updatedCover = cloudBook.cover;
+    let updatedPartsSyncStatus: { metadata: 'synced' | 'pending' | 'missing'; cover: 'synced' | 'pending' | 'missing'; book: 'synced' | 'pending' | 'missing' } = {
+      metadata: (cloudBook.partsSyncStatus?.metadata || 'missing') as 'synced' | 'pending' | 'missing',
+      cover: (cloudBook.partsSyncStatus?.cover || 'missing') as 'synced' | 'pending' | 'missing',
+      book: (cloudBook.partsSyncStatus?.book || 'missing') as 'synced' | 'pending' | 'missing',
+    };
+
+    // 同步元信息
+    if (syncMetadata && partsExists.metadata && cloudMetadata.metadataPath) {
+      onProgress?.({ stage: 'downloading', progress: 30, message: '正在同步元信息...' });
+      try {
+        const fullMetadata = await connectorInstance.downloadBookMetadata(cloudMetadata.metadataPath);
+        updatedMetadata = fullMetadata.metadata || cloudBook.metadata;
+        syncedParts.metadata = true;
+        updatedPartsSyncStatus = { ...updatedPartsSyncStatus, metadata: 'synced' };
+      } catch (error) {
+        console.warn(`Failed to sync metadata for ${cloudBook.bookId}:`, error);
+      }
+    }
+
+    // 同步封面
+    if (syncCover && partsExists.cover && cloudMetadata.coverPath && !cloudBook.cover) {
+      onProgress?.({ stage: 'downloading', progress: 60, message: '正在同步封面...' });
+      try {
+        const coverBlob = await connectorInstance.downloadBook(cloudMetadata.coverPath);
+        const coverBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(coverBlob);
+        });
+        updatedCover = coverBase64;
+        syncedParts.cover = true;
+        updatedPartsSyncStatus = { ...updatedPartsSyncStatus, cover: 'synced' };
+      } catch (error) {
+        console.warn(`Failed to sync cover for ${cloudBook.bookId}:`, error);
+      }
+    }
+
+    // 同步书籍文件（通常不需要，除非用户明确要求）
+    if (syncBook && partsExists.book) {
+      onProgress?.({ stage: 'downloading', progress: 90, message: '正在同步书籍文件...' });
+      try {
+        const bookData = await connectorInstance.downloadBook(cloudMetadata.remotePath);
+        // 验证校验和
+        const downloadedChecksum = await generateChecksum(bookData);
+        if (downloadedChecksum === cloudBook.checksum) {
+          syncedParts.book = true;
+          updatedPartsSyncStatus = { ...updatedPartsSyncStatus, book: 'synced' };
+        }
+      } catch (error) {
+        console.warn(`Failed to sync book for ${cloudBook.bookId}:`, error);
+      }
+    }
+
+    // 更新本地云端记录
+    onProgress?.({ stage: 'processing', progress: 95, message: '正在更新本地记录...' });
+    await updateCloudBook({
+      ...cloudBook,
+      metadata: updatedMetadata,
+      cover: updatedCover,
+      partsSyncStatus: updatedPartsSyncStatus,
+    });
+
+    onProgress?.({ stage: 'completed', progress: 100, message: '同步完成' });
+
+    return {
+      success: syncedParts.metadata || syncedParts.cover || syncedParts.book,
+      syncedParts,
+    };
+  } catch (error) {
+    onProgress?.({ stage: 'error', progress: 0, message: '同步失败' });
+    return {
+      success: false,
+      syncedParts: { metadata: false, cover: false, book: false },
+      error: error instanceof Error ? error.message : '同步失败',
+    };
   }
 }

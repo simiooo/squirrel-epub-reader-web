@@ -12,6 +12,7 @@ interface CloudBookListProps {
   onDelete?: (cloudBook: StoredCloudBook, connector: StoredConnector) => void;
   cachedBookIds?: Set<string>;
   downloadingIds?: Set<string>;
+  refreshTrigger?: number;
 }
 
 export const CloudBookList: React.FC<CloudBookListProps> = ({
@@ -21,6 +22,7 @@ export const CloudBookList: React.FC<CloudBookListProps> = ({
   onDelete,
   cachedBookIds = new Set(),
   downloadingIds = new Set(),
+  refreshTrigger,
 }) => {
   const { t } = useTranslation();
   const [cloudBooks, setCloudBooks] = useState<StoredCloudBook[]>([]);
@@ -41,7 +43,7 @@ export const CloudBookList: React.FC<CloudBookListProps> = ({
 
   useEffect(() => {
     loadCloudBooks();
-  }, [loadCloudBooks]);
+  }, [loadCloudBooks, refreshTrigger]);
 
   const handleDownload = useCallback(async (cloudBook: StoredCloudBook) => {
     try {

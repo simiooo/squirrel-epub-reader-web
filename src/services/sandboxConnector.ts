@@ -297,6 +297,7 @@ export class SandboxConnector implements CloudStorageConnector {
     return result.books.map(book => ({
       bookId: book.bookId,
       remotePath: book.remotePath,
+      metadataPath: `${book.remotePath.replace('/books/', '/metadata/').replace('.epub', '.json')}`,
       size: book.size,
       checksum: book.checksum,
       localModifiedAt: new Date(book.modifiedAt),
@@ -490,5 +491,97 @@ export class SandboxConnector implements CloudStorageConnector {
 
     this.eventListeners.clear();
     this.pendingRequests.clear();
+  }
+
+  // ==================== 分离存储操作（转发到沙箱）====================
+
+  async uploadBookWithParts(
+    bookId: string,
+    bookData: Blob,
+    coverData: Blob | null,
+    metadata: CloudBookMetadata,
+    fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata
+  ): Promise<CloudBookMetadata> {
+    const result = await this.sendRequest('UPLOAD_BOOK_WITH_PARTS', {
+      bookId,
+      bookData: await this.blobToBase64(bookData),
+      coverData: coverData ? await this.blobToBase64(coverData) : null,
+      metadata,
+      fullMetadata,
+    }) as { success: boolean; metadata: CloudBookMetadata };
+    return result.metadata;
+  }
+
+  async downloadBookWithParts(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    bookData: Blob;
+    coverData: Blob | null;
+    fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata;
+  }> {
+    const result = await this.sendRequest('DOWNLOAD_BOOK_WITH_PARTS', { metadata }) as {
+      success: boolean;
+      bookData: string;
+      coverData: string | null;
+      fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata;
+    };
+
+    return {
+      bookData: await this.base64ToBlob(result.bookData, 'application/epub+zip'),
+      coverData: result.coverData ? await this.base64ToBlob(result.coverData, 'image/jpeg') : null,
+      fullMetadata: result.fullMetadata,
+    };
+  }
+
+  async downloadBookMetadata(
+    metadataPath: string
+  ): Promise<import('../types/cloudStorage').CloudBookFullMetadata> {
+    const result = await this.sendRequest('DOWNLOAD_BOOK_METADATA', { metadataPath }) as {
+      success: boolean;
+      metadata: import('../types/cloudStorage').CloudBookFullMetadata;
+    };
+    return result.metadata;
+  }
+
+  async checkBookPartsExists(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    metadata: boolean;
+    cover: boolean;
+    book: boolean;
+  }> {
+    const result = await this.sendRequest('CHECK_BOOK_PARTS_EXISTS', { metadata }) as {
+      success: boolean;
+      exists: {
+        metadata: boolean;
+        cover: boolean;
+        book: boolean;
+      };
+    };
+    return result.exists;
+  }
+
+  // ==================== 辅助方法 ====================
+
+  private async blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        resolve(base64.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  private async base64ToBlob(base64: string, mimeType: string): Promise<Blob> {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
   }
 }

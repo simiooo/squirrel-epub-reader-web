@@ -82,8 +82,18 @@ export interface StoredCloudBook {
   bookId: string;
   connectorId: string;
   remotePath: string;
+  /** 封面在云端的路径 */
+  coverPath?: string;
+  /** 元信息在云端的路径 */
+  metadataPath?: string;
   size: number;
+  /** 封面大小（字节） */
+  coverSize?: number;
   checksum: string;
+  /** 封面校验和 */
+  coverChecksum?: string;
+  /** 元信息校验和 */
+  metadataChecksum?: string;
   remoteModifiedAt: string;
   localModifiedAt?: string;
   syncStatus: string;
@@ -92,6 +102,12 @@ export interface StoredCloudBook {
   cover?: string;
   cached?: boolean;
   cachedAt?: string;
+  /** 各部分同步状态 */
+  partsSyncStatus?: {
+    metadata: 'synced' | 'pending' | 'missing';
+    cover: 'synced' | 'pending' | 'missing';
+    book: 'synced' | 'pending' | 'missing';
+  };
 }
 
 export interface SyncRecord {
