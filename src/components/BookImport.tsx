@@ -134,6 +134,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
         metadata,
         cover,
         file: previewBook.file,
+        format: previewBook.format,
         addedAt: new Date(),
         updatedAt: new Date(),
       };

@@ -12,6 +12,11 @@ type BookFormat = 'epub' | 'pdf';
 
 // 异步检测文件格式
 const detectBookFormat = async (book: Book): Promise<BookFormat> => {
+  // 优先使用书籍存储的格式信息
+  if (book.format) {
+    return book.format;
+  }
+  
   // 如果文件名以 .pdf 结尾，则是 PDF
   if (book.file instanceof File && book.file.name.toLowerCase().endsWith('.pdf')) {
     return 'pdf';

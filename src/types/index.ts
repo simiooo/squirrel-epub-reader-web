@@ -21,6 +21,8 @@ export interface Book {
   metadata: BookMetadata;
   cover?: string;
   file: Blob;
+  /** 书籍格式：epub 或 pdf */
+  format?: 'epub' | 'pdf';
   addedAt: Date;
   updatedAt: Date;
 }

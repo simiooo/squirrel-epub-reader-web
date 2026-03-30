@@ -344,12 +344,16 @@ export async function downloadBookFromCloud(
 
     onProgress?.({ stage: 'processing', progress: 80, message: '正在保存到本地...' });
 
+    // 根据 remotePath 判断书籍格式
+    const format: 'epub' | 'pdf' = cloudBook.remotePath.toLowerCase().endsWith('.pdf') ? 'pdf' : 'epub';
+
     // 组装本地书籍对象，使用云端的完整元信息
     const newBook: Book = {
       id: cloudBook.bookId,
       metadata: fullMetadata.metadata || cloudBook.metadata,
       cover: coverBase64 || cloudBook.cover,
       file: bookData,
+      format,
       addedAt: new Date(),
       updatedAt: new Date(),
     };
