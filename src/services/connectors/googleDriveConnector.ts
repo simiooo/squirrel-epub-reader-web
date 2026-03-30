@@ -537,14 +537,43 @@ export class GoogleDriveConnector extends BaseCloudStorageConnector implements C
     return this.downloadFile(file.id);
   }
 
-  async deleteBook(remotePath: string): Promise<void> {
+  async deleteBook(paths: {
+    remotePath: string;
+    coverPath?: string;
+    metadataPath?: string;
+  }): Promise<void> {
     await this.ensureValidToken();
     const rootFolderId = await this.ensureRootFolder();
     const booksFolderId = await this.createSubfolder('books', rootFolderId);
-    
-    const file = await this.findFile(`${remotePath}.epub`, booksFolderId);
-    if (file) {
-      await this.deleteFile(file.id);
+    const coversFolderId = await this.createSubfolder('covers', rootFolderId);
+    const metadataFolderId = await this.createSubfolder('metadata', rootFolderId);
+
+    const { remotePath, coverPath, metadataPath } = paths;
+
+    // 删除书籍文件（尝试多种可能的扩展名）
+    const bookExtensions = ['epub', 'pdf'];
+    for (const ext of bookExtensions) {
+      const bookFile = await this.findFile(`${remotePath}.${ext}`, booksFolderId);
+      if (bookFile) {
+        await this.deleteFile(bookFile.id);
+        break;
+      }
+    }
+
+    // 删除封面文件
+    if (coverPath) {
+      const coverFile = await this.findFile(`${remotePath}.jpg`, coversFolderId);
+      if (coverFile) {
+        await this.deleteFile(coverFile.id);
+      }
+    }
+
+    // 删除元信息文件
+    if (metadataPath) {
+      const metadataFile = await this.findFile(`${remotePath}.json`, metadataFolderId);
+      if (metadataFile) {
+        await this.deleteFile(metadataFile.id);
+      }
     }
   }
 

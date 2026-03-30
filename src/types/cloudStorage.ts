@@ -329,10 +329,14 @@ export interface CloudStorageConnector {
   downloadBook(remotePath: string): Promise<Blob>;
   
   /**
-   * 删除云端书籍
-   * @param remotePath 云端路径
+   * 删除云端书籍（包括书籍文件、封面和元信息）
+   * @param paths 包含书籍、封面和元信息路径的对象
    */
-  deleteBook(remotePath: string): Promise<void>;
+  deleteBook(paths: {
+    remotePath: string;
+    coverPath?: string;
+    metadataPath?: string;
+  }): Promise<void>;
   
   /**
    * 获取云端书籍列表（包含完整元信息）

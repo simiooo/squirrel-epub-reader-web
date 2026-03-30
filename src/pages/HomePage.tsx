@@ -89,10 +89,14 @@ export const HomePage: React.FC = () => {
 
   const handleDeleteCloudBook = useCallback(async (cloudBook: StoredCloudBook, connector: StoredConnector) => {
     try {
-      // 先删除远程存储中的文件
+      // 先删除远程存储中的文件（包括书籍、封面和元信息）
       const connectorInstance = getConnectorInstance(connector);
       if (connectorInstance) {
-        await connectorInstance.deleteBook(cloudBook.remotePath);
+        await connectorInstance.deleteBook({
+          remotePath: cloudBook.remotePath,
+          coverPath: cloudBook.coverPath,
+          metadataPath: cloudBook.metadataPath,
+        });
       }
       
       // 再删除本地云端记录

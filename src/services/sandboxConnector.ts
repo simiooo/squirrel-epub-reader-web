@@ -278,8 +278,12 @@ export class SandboxConnector implements CloudStorageConnector {
     return new Blob([result.fileData]);
   }
 
-  async deleteBook(remotePath: string): Promise<void> {
-    await this.sendRequest('DELETE_BOOK', { remotePath });
+  async deleteBook(paths: {
+    remotePath: string;
+    coverPath?: string;
+    metadataPath?: string;
+  }): Promise<void> {
+    await this.sendRequest('DELETE_BOOK', { paths });
   }
 
   async listBooks(): Promise<CloudBookMetadata[]> {

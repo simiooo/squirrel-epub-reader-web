@@ -116,10 +116,14 @@ export interface UserCustomConnector {
   }>;
   
   /**
-   * 删除书籍
-   * @param remotePath 远程路径
+   * 删除书籍（包括书籍文件、封面和元信息）
+   * @param paths 包含书籍、封面和元信息路径的对象
    */
-  deleteBook(remotePath: string): Promise<{ success: boolean; error?: string }>;
+  deleteBook(paths: {
+    remotePath: string;
+    coverPath?: string;
+    metadataPath?: string;
+  }): Promise<{ success: boolean; error?: string }>;
   
   /**
    * 列出所有书籍
@@ -514,19 +518,35 @@ class CustomConnector {
     }
   }
 
-  async deleteBook(remotePath) {
+  async deleteBook(paths) {
     try {
       const token = await this.api.storage.getItem('access_token');
+      const { remotePath, coverPath, metadataPath } = paths;
       
-      const response = await this.api.fetch('https://api.example.com/delete', {
-        method: 'DELETE',
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'X-Path': remotePath,
-        },
-      });
+      // 删除所有相关文件
+      const pathsToDelete = [remotePath];
+      if (coverPath) pathsToDelete.push(coverPath);
+      if (metadataPath) pathsToDelete.push(metadataPath);
+      
+      for (const path of pathsToDelete) {
+        try {
+          const response = await this.api.fetch('https://api.example.com/delete', {
+            method: 'DELETE',
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'X-Path': path,
+            },
+          });
+          
+          if (!response.ok) {
+            console.warn('Failed to delete ' + path);
+          }
+        } catch (error) {
+          console.warn('Failed to delete ' + path + ':', error);
+        }
+      }
 
-      return { success: response.ok };
+      return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }

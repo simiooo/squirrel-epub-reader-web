@@ -329,17 +329,34 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     return new Blob([combined], { type: 'application/epub+zip' });
   }
 
-  async deleteBook(remotePath: string): Promise<void> {
+  async deleteBook(paths: {
+    remotePath: string;
+    coverPath?: string;
+    metadataPath?: string;
+  }): Promise<void> {
     if (!this.s3Client) {
       throw new Error('S3 client not initialized');
     }
 
-    const command = new DeleteObjectCommand({
-      Bucket: this.bucket,
-      Key: remotePath,
-    });
+    const { remotePath, coverPath, metadataPath } = paths;
 
-    await this.s3Client.send(command);
+    // 删除所有相关文件
+    const keysToDelete = [remotePath];
+    if (coverPath) keysToDelete.push(coverPath);
+    if (metadataPath) keysToDelete.push(metadataPath);
+
+    for (const key of keysToDelete) {
+      try {
+        const command = new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+        });
+        await this.s3Client.send(command);
+      } catch (error) {
+        console.warn(`Failed to delete ${key}:`, error);
+        // 继续删除其他文件，不中断流程
+      }
+    }
   }
 
   async listBooks(): Promise<CloudBookMetadata[]> {

@@ -65,7 +65,11 @@ export abstract class BaseCloudStorageConnector implements CloudStorageConnector
   
   abstract downloadBook(remotePath: string): Promise<Blob>;
   
-  abstract deleteBook(remotePath: string): Promise<void>;
+  abstract deleteBook(paths: {
+    remotePath: string;
+    coverPath?: string;
+    metadataPath?: string;
+  }): Promise<void>;
   
   abstract listBooks(): Promise<CloudBookMetadata[]>;
   

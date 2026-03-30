@@ -436,8 +436,26 @@ export class DropboxConnector extends BaseCloudStorageConnector implements Cloud
     return this.downloadFile(remotePath);
   }
 
-  async deleteBook(remotePath: string): Promise<void> {
-    await this.dropboxApiRequest('/2/files/delete_v2', { path: remotePath });
+  async deleteBook(paths: {
+    remotePath: string;
+    coverPath?: string;
+    metadataPath?: string;
+  }): Promise<void> {
+    const { remotePath, coverPath, metadataPath } = paths;
+
+    // 删除所有相关文件
+    const pathsToDelete = [remotePath];
+    if (coverPath) pathsToDelete.push(coverPath);
+    if (metadataPath) pathsToDelete.push(metadataPath);
+
+    for (const path of pathsToDelete) {
+      try {
+        await this.dropboxApiRequest('/2/files/delete_v2', { path });
+      } catch (error) {
+        console.warn(`Failed to delete ${path}:`, error);
+        // 继续删除其他文件，不中断流程
+      }
+    }
   }
 
   async listBooks(): Promise<CloudBookMetadata[]> {
