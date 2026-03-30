@@ -105,6 +105,10 @@
   backdrop-filter: blur(8px);
   border-radius: 8px !important;
   font-weight: 500 !important;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .book-card-actions .ant-btn:hover {

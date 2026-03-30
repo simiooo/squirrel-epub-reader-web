@@ -98,6 +98,7 @@ export const CloudBookList: React.FC<CloudBookListProps> = ({
               isDownloading={downloadingIds.has(cloudBook.id)}
               onDownload={handleDownload}
               onDelete={handleDelete}
+              onRefresh={loadCloudBooks}
             />
           </List.Item>
         )}

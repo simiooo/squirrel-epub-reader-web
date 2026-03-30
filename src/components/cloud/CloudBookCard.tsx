@@ -18,6 +18,8 @@ interface CloudBookCardProps {
 export const CloudBookCard: React.FC<CloudBookCardProps> = ({
   cloudBook,
   connector,
+  isCached: isCachedProp,
+  isDownloading: isDownloadingProp,
   onDownload,
   onDelete,
   onRefresh,
@@ -25,7 +27,8 @@ export const CloudBookCard: React.FC<CloudBookCardProps> = ({
   const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<SyncProgress | null>(null);
-  const [isCached, setIsCached] = useState(cloudBook.cached || false);
+  const isCached = isCachedProp || false;
+  const isDownloading = downloading || isDownloadingProp || false;
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -55,7 +58,6 @@ export const CloudBookCard: React.FC<CloudBookCardProps> = ({
       );
 
       if (result.success) {
-        setIsCached(true);
         onRefresh?.();
         onDownload?.(cloudBook);
       }
@@ -153,7 +155,7 @@ export const CloudBookCard: React.FC<CloudBookCardProps> = ({
         
         {/* 操作按钮 - 悬浮时显示 */}
         <div className="book-card-actions">
-          <Spin spinning={downloading} size="small">
+          <Spin spinning={isDownloading} size="small">
             <Button
               type="primary"
               size="small"
@@ -163,7 +165,7 @@ export const CloudBookCard: React.FC<CloudBookCardProps> = ({
                 e.stopPropagation();
                 handleDownload();
               }}
-              disabled={downloading || isCached}
+              disabled={isDownloading || isCached}
             >
               {isCached ? t('cloudStorage.cloudBooks.cached') : t('cloudStorage.cloudBooks.download')}
             </Button>
