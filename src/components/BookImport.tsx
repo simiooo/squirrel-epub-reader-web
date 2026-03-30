@@ -74,7 +74,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
         }
         
         // Parse metadata for preview
-        let title = 'Unknown Title';
+        let title = '';
         let author = 'Unknown Author';
         let cover: string | undefined;
         
@@ -88,6 +88,11 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
           title = parsed.metadata.title;
           author = parsed.metadata.author;
           cover = parsed.cover;
+        }
+        
+        // If title is empty, use filename without extension
+        if (!title || title.trim() === '') {
+          title = file.name.replace(/\.[^/.]+$/, '');
         }
         
         setPreviewBook({
@@ -131,14 +136,20 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
       
       if (previewBook.format === 'epub') {
         const parsed = await epubParser.load(previewBook.file);
-        metadata = parsed.metadata;
+        metadata = {
+          ...parsed.metadata,
+          title: parsed.metadata.title || previewBook.file.name.replace(/\.[^/.]+$/, ''),
+        };
         cover = parsed.cover;
       } else {
         const parsed = await pdfParser.load(previewBook.file);
         metadata = {
-          title: parsed.metadata.title,
+          title: parsed.metadata.title || previewBook.file.name.replace(/\.[^/.]+$/, ''),
           author: parsed.metadata.author,
           description: parsed.metadata.subject,
+          publisher: parsed.metadata.creator,
+          publicationDate: parsed.metadata.creationDate?.toISOString(),
+          identifier: parsed.metadata.keywords,
         };
         cover = parsed.cover;
       }
