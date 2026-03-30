@@ -192,6 +192,10 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({
         onRenderComplete?.();
       }
     } catch (error) {
+      // 忽略渲染取消异常（这是正常行为，不是错误）
+      if (error && typeof error === 'object' && 'name' in error && error.name === 'RenderingCancelledException') {
+        return;
+      }
       if (isMountedRef.current) {
         setHasError(true);
         setIsLoading(false);
