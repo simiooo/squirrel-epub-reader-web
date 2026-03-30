@@ -752,7 +752,8 @@ export class GoogleDriveConnector extends BaseCloudStorageConnector implements C
     bookData: Blob,
     coverData: Blob | null,
     metadata: CloudBookMetadata,
-    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata,
+    format: 'epub' | 'pdf' = 'epub'
   ): Promise<CloudBookMetadata> {
     await this.ensureValidToken();
     const rootFolderId = await this.ensureRootFolder();
@@ -761,16 +762,19 @@ export class GoogleDriveConnector extends BaseCloudStorageConnector implements C
     const metadataFolderId = await this.createSubfolder('metadata', rootFolderId);
     const coversFolderId = coverData ? await this.createSubfolder('covers', rootFolderId) : undefined;
 
+    const extension = format === 'pdf' ? 'pdf' : 'epub';
+    const mimeType = format === 'pdf' ? 'application/pdf' : 'application/epub+zip';
+
     // 1. 上传书籍文件
-    const existingBook = await this.findFile(`${bookId}.epub`, booksFolderId);
+    const existingBook = await this.findFile(`${bookId}.${extension}`, booksFolderId);
     if (existingBook) {
       await this.deleteFile(existingBook.id);
     }
     const bookFileId = await this.uploadFile(
-      `${bookId}.epub`,
+      `${bookId}.${extension}`,
       booksFolderId,
       bookData,
-      'application/epub+zip'
+      mimeType
     );
 
     // 2. 上传封面（如果有）
@@ -805,6 +809,7 @@ export class GoogleDriveConnector extends BaseCloudStorageConnector implements C
         cover: coverData ? 'synced' : 'missing',
         book: 'synced',
       },
+      format,
     };
 
     // 4. 上传元数据

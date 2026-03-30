@@ -161,7 +161,8 @@ export async function uploadBookToCloud(
       book.file,
       coverBlob,
       metadata,
-      fullMetadata
+      fullMetadata,
+      book.format
     );
 
     onProgress?.({ stage: 'processing', progress: 80, message: '正在保存元数据...' });
@@ -344,8 +345,9 @@ export async function downloadBookFromCloud(
 
     onProgress?.({ stage: 'processing', progress: 80, message: '正在保存到本地...' });
 
-    // 根据 remotePath 判断书籍格式
-    const format: 'epub' | 'pdf' = cloudBook.remotePath.toLowerCase().endsWith('.pdf') ? 'pdf' : 'epub';
+    // 优先使用云端元信息中的格式，否则根据 remotePath 判断
+    const format: 'epub' | 'pdf' = fullMetadata.format 
+      || (cloudBook.remotePath.toLowerCase().endsWith('.pdf') ? 'pdf' : 'epub');
 
     // 组装本地书籍对象，使用云端的完整元信息
     const newBook: Book = {

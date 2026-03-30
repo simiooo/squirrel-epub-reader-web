@@ -131,6 +131,8 @@ export interface CloudBookFullMetadata {
     cover: 'synced' | 'pending' | 'missing';
     book: 'synced' | 'pending' | 'missing';
   };
+  /** 书籍格式（epub 或 pdf） */
+  format?: 'epub' | 'pdf';
 }
 
 /**
@@ -283,6 +285,7 @@ export interface CloudStorageConnector {
    * @param coverData 封面图片数据（可选）
    * @param metadata 书籍完整元数据
    * @param fullMetadata 书籍完整元信息对象
+   * @param format 书籍格式（epub 或 pdf）
    * @returns 云端书籍元数据
    */
   uploadBookWithParts(
@@ -290,7 +293,8 @@ export interface CloudStorageConnector {
     bookData: Blob,
     coverData: Blob | null,
     metadata: CloudBookMetadata,
-    fullMetadata: CloudBookFullMetadata
+    fullMetadata: CloudBookFullMetadata,
+    format?: 'epub' | 'pdf'
   ): Promise<CloudBookMetadata>;
   
   /**

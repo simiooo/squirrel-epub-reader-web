@@ -500,7 +500,8 @@ export class SandboxConnector implements CloudStorageConnector {
     bookData: Blob,
     coverData: Blob | null,
     metadata: CloudBookMetadata,
-    fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata
+    fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata,
+    format: 'epub' | 'pdf' = 'epub'
   ): Promise<CloudBookMetadata> {
     const result = await this.sendRequest('UPLOAD_BOOK_WITH_PARTS', {
       bookId,
@@ -508,6 +509,7 @@ export class SandboxConnector implements CloudStorageConnector {
       coverData: coverData ? await this.blobToBase64(coverData) : null,
       metadata,
       fullMetadata,
+      format,
     }) as { success: boolean; metadata: CloudBookMetadata };
     return result.metadata;
   }

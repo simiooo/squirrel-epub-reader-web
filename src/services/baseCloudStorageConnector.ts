@@ -47,7 +47,8 @@ export abstract class BaseCloudStorageConnector implements CloudStorageConnector
     bookData: Blob,
     coverData: Blob | null,
     metadata: CloudBookMetadata,
-    fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata
+    fullMetadata: import('../types/cloudStorage').CloudBookFullMetadata,
+    format?: 'epub' | 'pdf'
   ): Promise<CloudBookMetadata>;
   
   abstract uploadBook(

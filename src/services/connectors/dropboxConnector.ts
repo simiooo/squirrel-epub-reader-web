@@ -578,9 +578,11 @@ export class DropboxConnector extends BaseCloudStorageConnector implements Cloud
     bookData: Blob,
     coverData: Blob | null,
     metadata: CloudBookMetadata,
-    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata,
+    format: 'epub' | 'pdf' = 'epub'
   ): Promise<CloudBookMetadata> {
-    const bookPath = `${this.rootPath}/books/${bookId}.epub`;
+    const extension = format === 'pdf' ? 'pdf' : 'epub';
+    const bookPath = `${this.rootPath}/books/${bookId}.${extension}`;
     const metadataPath = `${this.rootPath}/metadata/${bookId}.json`;
     const coverPath = coverData ? `${this.rootPath}/covers/${bookId}.cover` : undefined;
 
@@ -609,6 +611,7 @@ export class DropboxConnector extends BaseCloudStorageConnector implements Cloud
         cover: coverData ? 'synced' : 'missing',
         book: 'synced',
       },
+      format,
     };
 
     // 4. 上传元数据

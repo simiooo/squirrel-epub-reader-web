@@ -167,13 +167,15 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     bookData: Blob,
     coverData: Blob | null,
     metadata: CloudBookMetadata,
-    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata,
+    format: 'epub' | 'pdf' = 'epub'
   ): Promise<CloudBookMetadata> {
     if (!this.s3Client) {
       throw new Error('S3 client not initialized');
     }
 
-    const bookKey = `${this.rootPath}/books/${bookId}.epub`;
+    const extension = format === 'pdf' ? 'pdf' : 'epub';
+    const bookKey = `${this.rootPath}/books/${bookId}.${extension}`;
     const metadataKey = `${this.rootPath}/metadata/${bookId}.json`;
     const coverKey = coverData ? `${this.rootPath}/covers/${bookId}.cover` : undefined;
 
@@ -183,11 +185,12 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
 
     // 1. 上传书籍文件
     const bookArrayBuffer = await bookData.arrayBuffer();
+    const contentType = format === 'pdf' ? 'application/pdf' : 'application/epub+zip';
     const bookPutCommand = new PutObjectCommand({
       Bucket: this.bucket,
       Key: bookKey,
       Body: new Uint8Array(bookArrayBuffer),
-      ContentType: 'application/epub+zip',
+      ContentType: contentType,
       Metadata: {
         'book-id': bookId,
         'checksum': bookChecksum,
@@ -230,6 +233,7 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
         cover: coverData ? 'synced' : 'missing',
         book: 'synced',
       },
+      format,
     };
 
     const metadataPutCommand = new PutObjectCommand({
