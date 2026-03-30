@@ -51,7 +51,15 @@ export async function getAllBooks(): Promise<Book[]> {
 }
 
 export async function deleteBook(id: string): Promise<void> {
-  await db.transaction('rw', db.books, db.progress, db.bookmarks, async () => {
+  await db.transaction('rw', db.books, db.progress, db.bookmarks, db.cloudBooks, async () => {
+    // 删除本地书籍前，先更新云端书籍的缓存状态
+    const cloudBook = await db.cloudBooks.where('bookId').equals(id).first();
+    if (cloudBook) {
+      cloudBook.cached = false;
+      cloudBook.cachedAt = new Date().toISOString();
+      await db.cloudBooks.put(cloudBook);
+    }
+    
     await db.books.delete(id);
     await db.progress.delete(id);
     await db.bookmarks.where('bookId').equals(id).delete();
