@@ -228,3 +228,34 @@ export async function updateSyncRecord(record: SyncRecord): Promise<void> {
 export async function deleteSyncRecord(id: string): Promise<void> {
   await db.syncRecords.delete(id);
 }
+
+/**
+ * 修复云端书籍缓存状态不一致的问题
+ * 检查所有标记为 cached=true 的云端书籍，如果对应的本地书籍不存在，则更新缓存状态
+ * @returns 修复的书籍数量
+ */
+export async function fixCloudBookCacheStatus(): Promise<number> {
+  const allCloudBooks = await getAllCloudBooks();
+  let fixedCount = 0;
+
+  for (const cloudBook of allCloudBooks) {
+    if (cloudBook.cached) {
+      // 检查本地是否存在对应的书籍
+      const localBook = await getBook(cloudBook.bookId);
+      if (!localBook) {
+        // 本地书籍不存在，更新云端缓存状态
+        cloudBook.cached = false;
+        cloudBook.cachedAt = new Date().toISOString();
+        await updateCloudBook(cloudBook);
+        fixedCount++;
+        console.log(`Fixed cloud book cache status: ${cloudBook.metadata.title} (${cloudBook.bookId})`);
+      }
+    }
+  }
+
+  if (fixedCount > 0) {
+    console.log(`Fixed ${fixedCount} cloud book(s) cache status`);
+  }
+
+  return fixedCount;
+}
