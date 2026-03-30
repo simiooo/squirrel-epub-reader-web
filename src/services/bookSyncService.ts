@@ -227,7 +227,8 @@ export async function downloadBookFromCloud(
 
     if (localBook) {
       // 本地已存在，检查是否有冲突
-      const localChecksum = await generateChecksum(localBook.file);
+      // 优先使用本地存储的 checksum，如果没有则重新计算
+      const localChecksum = localBook.checksum || await generateChecksum(localBook.file);
       
       if (localChecksum !== cloudBook.checksum) {
         // 存在冲突
@@ -350,12 +351,14 @@ export async function downloadBookFromCloud(
       || (cloudBook.remotePath.toLowerCase().endsWith('.pdf') ? 'pdf' : 'epub');
 
     // 组装本地书籍对象，使用云端的完整元信息
+    // 注意：downloadedChecksum 在上面已经计算过了
     const newBook: Book = {
       id: cloudBook.bookId,
       metadata: fullMetadata.metadata || cloudBook.metadata,
       cover: coverBase64 || cloudBook.cover,
       file: bookData,
       format,
+      checksum: downloadedChecksum,
       addedAt: new Date(),
       updatedAt: new Date(),
     };

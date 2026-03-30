@@ -23,6 +23,8 @@ export interface Book {
   file: Blob;
   /** 书籍格式：epub 或 pdf */
   format?: 'epub' | 'pdf';
+  /** 文件 SHA-256 校验和，用于唯一性校验 */
+  checksum: string;
   addedAt: Date;
   updatedAt: Date;
 }

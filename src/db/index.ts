@@ -31,13 +31,26 @@ export class EpubDatabase extends Dexie {
     this.version(5).stores({
       cloudBooks: 'id, bookId, connectorId, &remotePath, checksum, syncStatus, cachedAt',
     });
+    
+    this.version(6).stores({
+      books: 'id, &metadata.identifier, checksum, addedAt',
+    });
   }
 }
 
 export const db = new EpubDatabase();
 
 // Book operations
+export async function findBookByChecksum(checksum: string): Promise<Book | undefined> {
+  return db.books.where('checksum').equals(checksum).first();
+}
+
 export async function addBook(book: Book): Promise<string> {
+  // 检查是否已存在相同 checksum 的书籍
+  const existingBook = await findBookByChecksum(book.checksum);
+  if (existingBook) {
+    throw new Error(`书籍 "${existingBook.metadata.title}" 已经存在于本地书架中`);
+  }
   const id = await db.books.add(book);
   return id as string;
 }

@@ -5,7 +5,8 @@ import { UploadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { epubParser } from '../utils/epubParser';
 import { pdfParser } from '../utils/pdfParser';
-import { addBook } from '../db';
+import { addBook, findBookByChecksum } from '../db';
+import { generateChecksum } from '../utils/bookHash';
 import type { Book, BookMetadata } from '../types';
 
 type BookFormat = 'epub' | 'pdf';
@@ -112,6 +113,19 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
     
     setUploading(true);
     try {
+      // 生成文件 checksum
+      const checksum = await generateChecksum(previewBook.file);
+      
+      // 检查是否已存在相同书籍
+      const existingBook = await findBookByChecksum(checksum);
+      if (existingBook) {
+        message.warning(`书籍 "${existingBook.metadata.title}" 已经存在于本地书架中`);
+        setPreviewVisible(false);
+        setPreviewBook(null);
+        setFileList([]);
+        return;
+      }
+      
       let metadata: BookMetadata;
       let cover: string | undefined;
       
@@ -135,6 +149,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
         cover,
         file: previewBook.file,
         format: previewBook.format,
+        checksum,
         addedAt: new Date(),
         updatedAt: new Date(),
       };
