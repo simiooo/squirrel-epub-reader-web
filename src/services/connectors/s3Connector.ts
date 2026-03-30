@@ -310,7 +310,7 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     } else {
       // 如果是其他类型（如Blob），直接转换
       const byteArray = await response.Body.transformToByteArray();
-      return new Blob([byteArray.buffer as ArrayBuffer], { type: 'application/epub+zip' });
+      return new Blob([byteArray as unknown as BlobPart], { type: 'application/epub+zip' });
     }
 
     // 合并所有chunks
@@ -322,7 +322,7 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
       offset += chunk.length;
     }
 
-    return new Blob([combined.buffer as ArrayBuffer], { type: 'application/epub+zip' });
+    return new Blob([combined], { type: 'application/epub+zip' });
   }
 
   async deleteBook(remotePath: string): Promise<void> {
@@ -660,7 +660,7 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     }
 
     const byteArray = await response.Body.transformToByteArray();
-    return new Blob([byteArray.buffer as ArrayBuffer], { type: 'image/jpeg' });
+    return new Blob([byteArray as unknown as BlobPart], { type: 'image/jpeg' });
   }
 
   /**
