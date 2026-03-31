@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { Book, ReadingProgress, Bookmark, StoredConnector, StoredCloudBook, SyncRecord } from '../types';
+import type { UploadSession } from '../types/cloudStorage';
 
 export class EpubDatabase extends Dexie {
   books!: Table<Book, string>;
@@ -9,6 +10,7 @@ export class EpubDatabase extends Dexie {
   connectors!: Table<StoredConnector, string>;
   cloudBooks!: Table<StoredCloudBook, string>;
   syncRecords!: Table<SyncRecord, string>;
+  uploadSessions!: Table<UploadSession, string>;
 
   constructor() {
     super('EpubReaderDB');
@@ -21,7 +23,6 @@ export class EpubDatabase extends Dexie {
       cloudBooks: 'id, bookId, connectorId, &remotePath, syncStatus, cachedAt',
       syncRecords: 'id, bookId, connectorId, status, timestamp',
     }).upgrade(tx => {
-      // 升级：移除 connectors 表中的 autoSync 和 syncInterval 字段
       return tx.table('connectors').toCollection().modify(connector => {
         delete (connector as Record<string, unknown>).autoSync;
         delete (connector as Record<string, unknown>).syncInterval;
@@ -34,6 +35,10 @@ export class EpubDatabase extends Dexie {
     
     this.version(6).stores({
       books: 'id, &metadata.identifier, checksum, addedAt',
+    });
+
+    this.version(7).stores({
+      uploadSessions: 'uploadId, bookId, connectorId, key, createdAt',
     });
   }
 }
@@ -240,6 +245,38 @@ export async function updateSyncRecord(record: SyncRecord): Promise<void> {
 
 export async function deleteSyncRecord(id: string): Promise<void> {
   await db.syncRecords.delete(id);
+}
+
+// ==================== Upload Session Operations ====================
+
+export async function addUploadSession(session: UploadSession): Promise<string> {
+  const id = await db.uploadSessions.add(session);
+  return id as string;
+}
+
+export async function getUploadSession(uploadId: string): Promise<UploadSession | undefined> {
+  return db.uploadSessions.get(uploadId);
+}
+
+export async function getUploadSessionByBook(bookId: string, connectorId: string): Promise<UploadSession | undefined> {
+  return db.uploadSessions.where({ bookId, connectorId }).first();
+}
+
+export async function deleteUploadSession(uploadId: string): Promise<void> {
+  await db.uploadSessions.delete(uploadId);
+}
+
+export async function deleteUploadSessionByBook(bookId: string, connectorId: string): Promise<void> {
+  await db.uploadSessions.where({ bookId, connectorId }).delete();
+}
+
+export async function cleanupExpiredUploadSessions(maxAge: number): Promise<number> {
+  const cutoff = Date.now() - maxAge;
+  const expired = await db.uploadSessions.where('createdAt').below(cutoff).toArray();
+  for (const session of expired) {
+    await db.uploadSessions.delete(session.uploadId);
+  }
+  return expired.length;
 }
 
 /**

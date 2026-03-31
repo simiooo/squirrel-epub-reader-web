@@ -9,8 +9,9 @@ import { generateBookId, generateChecksum } from '../utils/bookHash';
 import { S3Connector } from './connectors/s3Connector';
 import { DropboxConnector } from './connectors/dropboxConnector';
 import { GoogleDriveConnector } from './connectors/googleDriveConnector';
+import { BaseCloudStorageConnector } from './baseCloudStorageConnector';
 import type { Book, StoredCloudBook, StoredConnector, ConflictInfo } from '../types';
-import type { CloudStorageConnector, CloudBookMetadata } from '../types/cloudStorage';
+import type { CloudStorageConnector, CloudBookMetadata, SyncProgressResult, SyncBookmarkResult } from '../types/cloudStorage';
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -703,5 +704,57 @@ export async function syncCloudBookParts(
       syncedParts: { metadata: false, cover: false, book: false },
       error: error instanceof Error ? error.message : '同步失败',
     };
+  }
+}
+
+/**
+ * 同步单本书的阅读进度
+ */
+export async function syncProgress(
+  bookId: string,
+  connector: StoredConnector
+): Promise<SyncProgressResult> {
+  try {
+    const connectorInstance = getConnectorInstance(connector);
+    if (!connectorInstance) {
+      return { success: false, strategy: 'merge' };
+    }
+
+    if (connectorInstance.getAuthStatus() !== 'authenticated') {
+      return { success: false, strategy: 'merge' };
+    }
+
+    await connectorInstance.syncBookProgress(bookId);
+
+    return { success: true, strategy: 'merge' };
+  } catch (error) {
+    console.error(`Failed to sync progress for book ${bookId}:`, error);
+    return { success: false, strategy: 'merge' };
+  }
+}
+
+/**
+ * 同步单本书的书签
+ */
+export async function syncBookmarks(
+  bookId: string,
+  connector: StoredConnector
+): Promise<SyncBookmarkResult> {
+  try {
+    const connectorInstance = getConnectorInstance(connector);
+    if (!connectorInstance) {
+      return { success: false, added: 0, removed: 0, merged: 0 };
+    }
+
+    if (connectorInstance.getAuthStatus() !== 'authenticated') {
+      return { success: false, added: 0, removed: 0, merged: 0 };
+    }
+
+    await connectorInstance.syncBookBookmarks(bookId);
+
+    return { success: true, added: 0, removed: 0, merged: 0 };
+  } catch (error) {
+    console.error(`Failed to sync bookmarks for book ${bookId}:`, error);
+    return { success: false, added: 0, removed: 0, merged: 0 };
   }
 }

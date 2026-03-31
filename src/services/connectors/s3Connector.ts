@@ -17,6 +17,12 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  ListPartsCommand,
+  CopyObjectCommand,
+  AbortMultipartUploadCommand,
 } from '@aws-sdk/client-s3';
 import type {
   CloudStorageConnector,
@@ -24,8 +30,11 @@ import type {
   CloudBookMetadata,
   CloudReadingProgress,
   CloudBookmark,
+  UploadProgress,
+  SyncOptions,
 } from '../../types/cloudStorage';
 import { BaseCloudStorageConnector } from '../baseCloudStorageConnector';
+import type { Bookmark } from '../../types';
 
 interface S3Settings {
   endpoint: string;
@@ -37,9 +46,6 @@ interface S3Settings {
   forcePathStyle?: boolean;
 }
 
-/**
- * S3兼容存储连接器 - 使用AWS SDK
- */
 export class S3Connector extends BaseCloudStorageConnector implements CloudStorageConnector {
   readonly type = 's3';
   readonly displayName: string;
@@ -47,6 +53,9 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
   private s3Client: S3Client | null = null;
   private bucket: string;
   private rootPath: string;
+
+  private readonly MULTIPART_THRESHOLD = 20 * 1024 * 1024;
+  private readonly PART_SIZE = 5 * 1024 * 1024;
 
   constructor(config: ConnectorConfig) {
     super(config);
@@ -63,12 +72,9 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     if (settings.endpoint && settings.bucket && settings.accessKeyId && settings.secretAccessKey) {
       const region = settings.region || this.extractRegionFromEndpoint(settings.endpoint) || 'us-east-1';
       
-      // 检测是否应该使用路径格式
-      // Backblaze B2和Cloudflare R2通常需要路径格式来避免CORS问题
       const isBackblaze = settings.endpoint.includes('backblazeb2.com');
       const isR2 = settings.endpoint.includes('.r2.cloudflarestorage.com');
       const isNonAws = isBackblaze || isR2;
-      // 对于非AWS服务，默认启用路径格式以避免CORS问题
       const forcePathStyle = settings.forcePathStyle ?? isNonAws;
 
       this.s3Client = new S3Client({
@@ -87,32 +93,20 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     }
   }
 
-  /**
-   * 从endpoint URL中提取region
-   * 
-   * 支持：
-   * - AWS S3: s3.<region>.amazonaws.com
-   * - Backblaze B2: s3.<region>.backblazeb2.com
-   * - Cloudflare R2: <id>.r2.cloudflarestorage.com (返回 'auto')
-   * - DigitalOcean Spaces: <region>.digitaloceanspaces.com
-   */
   private extractRegionFromEndpoint(endpoint: string): string | null {
     try {
       const url = new URL(endpoint);
       const host = url.host;
       
-      // 匹配 s3.<region>.backblazeb2.com 或 s3.<region>.amazonaws.com 格式
       const match = host.match(/s3\.([^.]+)\.(backblazeb2|amazonaws)\.com/);
       if (match) {
         return match[1];
       }
       
-      // 匹配 Cloudflare R2: xxx.r2.cloudflarestorage.com
       if (host.includes('.r2.cloudflarestorage.com')) {
         return 'auto';
       }
       
-      // 匹配 DigitalOcean Spaces: <region>.digitaloceanspaces.com
       const spacesMatch = host.match(/^([^.]+)\.digitaloceanspaces\.com/);
       if (spacesMatch) {
         return spacesMatch[1];
@@ -124,7 +118,6 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     }
   }
 
-  // S3不需要OAuth认证流程，直接使用API密钥
   async authenticate(): Promise<boolean> {
     return this.authStatus === 'authenticated';
   }
@@ -162,6 +155,8 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     }
   }
 
+  // ==================== Book Upload (Atomic) ====================
+
   async uploadBookWithParts(
     bookId: string,
     bookData: Blob,
@@ -174,88 +169,82 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
       throw new Error('S3 client not initialized');
     }
 
+    const uploadId = crypto.randomUUID();
     const extension = format === 'pdf' ? 'pdf' : 'epub';
+    const tempPrefix = `${this.rootPath}/_temp/${uploadId}`;
+
     const bookKey = `${this.rootPath}/books/${bookId}.${extension}`;
     const metadataKey = `${this.rootPath}/metadata/${bookId}.json`;
     const coverKey = coverData ? `${this.rootPath}/covers/${bookId}.cover` : undefined;
+
+    const tempBookKey = `${tempPrefix}/books/${bookId}.${extension}`;
+    const tempMetadataKey = `${tempPrefix}/metadata/${bookId}.json`;
+    const tempCoverKey = coverData ? `${tempPrefix}/covers/${bookId}.cover` : undefined;
 
     const bookChecksum = await this.generateChecksum(bookData);
     const metadataChecksum = await this.generateChecksum(new Blob([JSON.stringify(fullMetadata)]));
     let coverChecksum: string | undefined;
 
-    // 1. 上传书籍文件
-    const bookArrayBuffer = await bookData.arrayBuffer();
-    const contentType = format === 'pdf' ? 'application/pdf' : 'application/epub+zip';
-    const bookPutCommand = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: bookKey,
-      Body: new Uint8Array(bookArrayBuffer),
-      ContentType: contentType,
-      Metadata: {
+    try {
+      await this.uploadToTemp(tempBookKey, bookData, {
         'book-id': bookId,
         'checksum': bookChecksum,
-      },
-    });
-    await this.s3Client.send(bookPutCommand);
+      });
 
-    // 2. 上传封面（如果有）
-    if (coverData && coverKey) {
-      const coverArrayBuffer = await coverData.arrayBuffer();
-      coverChecksum = await this.generateChecksum(coverData);
-      const coverPutCommand = new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: coverKey,
-        Body: new Uint8Array(coverArrayBuffer),
-        ContentType: 'image/jpeg',
-        Metadata: {
+      if (coverData && tempCoverKey) {
+        coverChecksum = await this.generateChecksum(coverData);
+        await this.uploadToTemp(tempCoverKey, coverData, {
           'book-id': bookId,
           'checksum': coverChecksum,
+        });
+      }
+
+      const completeMetadata: import('../../types/cloudStorage').CloudBookFullMetadata = {
+        ...fullMetadata,
+        bookPath: bookKey,
+        coverPath: coverKey,
+        size: bookData.size,
+        coverSize: coverData?.size,
+        checksum: bookChecksum,
+        coverChecksum,
+        metadataChecksum,
+        remoteModifiedAt: new Date().toISOString(),
+        localModifiedAt: fullMetadata.localModifiedAt,
+        version: fullMetadata.version,
+        partsSyncStatus: {
+          metadata: 'synced',
+          cover: coverData ? 'synced' : 'missing',
+          book: 'synced',
         },
+        format,
+      };
+
+      await this.uploadToTemp(tempMetadataKey, new Blob([JSON.stringify(completeMetadata)]));
+
+      await this.commitUpload(uploadId, bookId, {
+        [tempBookKey]: bookKey,
+        [tempMetadataKey]: metadataKey,
+        ...(tempCoverKey && coverKey ? { [tempCoverKey]: coverKey } : {}),
       });
-      await this.s3Client.send(coverPutCommand);
+
+      await this.rollbackUpload(uploadId);
+
+      return {
+        ...metadata,
+        remotePath: bookKey,
+        coverPath: coverKey,
+        metadataPath: metadataKey,
+        checksum: bookChecksum,
+        coverChecksum,
+        metadataChecksum,
+        size: bookData.size,
+        coverSize: coverData?.size,
+        partsSyncStatus: completeMetadata.partsSyncStatus,
+      };
+    } catch (error) {
+      await this.rollbackUpload(uploadId);
+      throw error;
     }
-
-    // 3. 上传完整元信息
-    const completeMetadata: import('../../types/cloudStorage').CloudBookFullMetadata = {
-      ...fullMetadata,
-      bookPath: bookKey,
-      coverPath: coverKey,
-      size: bookData.size,
-      coverSize: coverData?.size,
-      checksum: bookChecksum,
-      coverChecksum,
-      metadataChecksum,
-      remoteModifiedAt: new Date().toISOString(),
-      localModifiedAt: fullMetadata.localModifiedAt,
-      version: fullMetadata.version,
-      partsSyncStatus: {
-        metadata: 'synced',
-        cover: coverData ? 'synced' : 'missing',
-        book: 'synced',
-      },
-      format,
-    };
-
-    const metadataPutCommand = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: metadataKey,
-      Body: JSON.stringify(completeMetadata),
-      ContentType: 'application/json',
-    });
-    await this.s3Client.send(metadataPutCommand);
-
-    return {
-      ...metadata,
-      remotePath: bookKey,
-      coverPath: coverKey,
-      metadataPath: metadataKey,
-      checksum: bookChecksum,
-      coverChecksum,
-      metadataChecksum,
-      size: bookData.size,
-      coverSize: coverData?.size,
-      partsSyncStatus: completeMetadata.partsSyncStatus,
-    };
   }
 
   async uploadBook(
@@ -263,7 +252,6 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     fileData: Blob,
     metadata: CloudBookMetadata
   ): Promise<CloudBookMetadata> {
-    // 调用新的分离存储方法，但不提供封面和完整元信息
     const fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata = {
       bookId,
       metadata: { title: 'Unknown', author: 'Unknown' },
@@ -283,6 +271,8 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     return this.uploadBookWithParts(bookId, fileData, null, metadata, fullMetadata);
   }
 
+  // ==================== Book Download ====================
+
   async downloadBook(remotePath: string): Promise<Blob> {
     if (!this.s3Client) {
       throw new Error('S3 client not initialized');
@@ -299,11 +289,9 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
       throw new Error('Empty response body');
     }
 
-    // 将响应流转换为Blob
     const chunks: Uint8Array[] = [];
     const reader = response.Body as ReadableStream<Uint8Array>;
     
-    // 如果是ReadableStream
     if (reader instanceof ReadableStream) {
       const streamReader = reader.getReader();
       while (true) {
@@ -312,12 +300,10 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
         chunks.push(value);
       }
     } else {
-      // 如果是其他类型（如Blob），直接转换
       const byteArray = await response.Body.transformToByteArray();
       return new Blob([byteArray as unknown as BlobPart], { type: 'application/epub+zip' });
     }
 
-    // 合并所有chunks
     const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
     const combined = new Uint8Array(totalLength);
     let offset = 0;
@@ -329,6 +315,82 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     return new Blob([combined], { type: 'application/epub+zip' });
   }
 
+  async downloadBookWithParts(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    bookData: Blob;
+    coverData: Blob | null;
+    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata;
+  }> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const fullMetadata = await this.downloadBookMetadata(metadata.metadataPath);
+    const bookData = await this.downloadBook(metadata.remotePath);
+
+    let coverData: Blob | null = null;
+    if (metadata.coverPath) {
+      try {
+        coverData = await this.downloadCover(metadata.coverPath);
+      } catch (error) {
+        console.warn(`Failed to download cover for ${metadata.bookId}:`, error);
+      }
+    }
+
+    return { bookData, coverData, fullMetadata };
+  }
+
+  async downloadBookMetadata(
+    metadataPath: string
+  ): Promise<import('../../types/cloudStorage').CloudBookFullMetadata> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: metadataPath,
+    });
+
+    const response = await this.s3Client.send(command);
+
+    if (!response.Body) {
+      throw new Error('Empty metadata response body');
+    }
+
+    const text = await response.Body.transformToString();
+    const meta = JSON.parse(text);
+
+    return {
+      ...meta,
+      localModifiedAt: meta.localModifiedAt,
+      remoteModifiedAt: meta.remoteModifiedAt,
+    };
+  }
+
+  private async downloadCover(coverPath: string): Promise<Blob> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: coverPath,
+    });
+
+    const response = await this.s3Client.send(command);
+
+    if (!response.Body) {
+      throw new Error('Empty cover response body');
+    }
+
+    const byteArray = await response.Body.transformToByteArray();
+    return new Blob([byteArray as unknown as BlobPart], { type: 'image/jpeg' });
+  }
+
+  // ==================== Book Management ====================
+
   async deleteBook(paths: {
     remotePath: string;
     coverPath?: string;
@@ -339,8 +401,6 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     }
 
     const { remotePath, coverPath, metadataPath } = paths;
-
-    // 删除所有相关文件
     const keysToDelete = [remotePath];
     if (coverPath) keysToDelete.push(coverPath);
     if (metadataPath) keysToDelete.push(metadataPath);
@@ -354,7 +414,6 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
         await this.s3Client.send(command);
       } catch (error) {
         console.warn(`Failed to delete ${key}:`, error);
-        // 继续删除其他文件，不中断流程
       }
     }
   }
@@ -438,6 +497,59 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
       return false;
     }
   }
+
+  async checkBookPartsExists(
+    metadata: CloudBookMetadata
+  ): Promise<{
+    metadata: boolean;
+    cover: boolean;
+    book: boolean;
+  }> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const results = { metadata: false, cover: false, book: false };
+
+    try {
+      const metadataCommand = new HeadObjectCommand({
+        Bucket: this.bucket,
+        Key: metadata.metadataPath,
+      });
+      await this.s3Client.send(metadataCommand);
+      results.metadata = true;
+    } catch {
+      results.metadata = false;
+    }
+
+    try {
+      if (metadata.coverPath) {
+        const coverCommand = new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: metadata.coverPath,
+        });
+        await this.s3Client.send(coverCommand);
+        results.cover = true;
+      }
+    } catch {
+      results.cover = false;
+    }
+
+    try {
+      const bookCommand = new HeadObjectCommand({
+        Bucket: this.bucket,
+        Key: metadata.remotePath,
+      });
+      await this.s3Client.send(bookCommand);
+      results.book = true;
+    } catch {
+      results.book = false;
+    }
+
+    return results;
+  }
+
+  // ==================== Progress ====================
 
   async uploadProgress(bookId: string, progress: CloudReadingProgress): Promise<void> {
     if (!this.s3Client) {
@@ -536,6 +648,8 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     return progressList;
   }
 
+  // ==================== Bookmarks ====================
+
   async uploadBookmarks(bookId: string, bookmarks: CloudBookmark[]): Promise<void> {
     if (!this.s3Client) {
       throw new Error('S3 client not initialized');
@@ -593,155 +707,418 @@ export class S3Connector extends BaseCloudStorageConnector implements CloudStora
     await this.uploadBookmarks(bookId, filtered);
   }
 
-  /**
-   * 下载书籍的所有部分（书籍文件、封面、元信息）
-   */
-  async downloadBookWithParts(
-    metadata: CloudBookMetadata
-  ): Promise<{
-    bookData: Blob;
-    coverData: Blob | null;
-    fullMetadata: import('../../types/cloudStorage').CloudBookFullMetadata;
-  }> {
+  // ==================== Multipart Upload ====================
+
+  private async uploadWithMultipart(
+    key: string,
+    blob: Blob,
+    metadata?: Record<string, string>,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<void> {
     if (!this.s3Client) {
       throw new Error('S3 client not initialized');
     }
 
-    // 1. 下载完整元信息
-    const fullMetadata = await this.downloadBookMetadata(metadata.metadataPath);
+    const totalParts = Math.ceil(blob.size / this.PART_SIZE);
+    const startTime = Date.now();
+    let uploadedBytes = 0;
 
-    // 2. 下载书籍文件
-    const bookData = await this.downloadBook(metadata.remotePath);
-
-    // 3. 下载封面（如果有）
-    let coverData: Blob | null = null;
-    if (metadata.coverPath) {
-      try {
-        coverData = await this.downloadCover(metadata.coverPath);
-      } catch (error) {
-        console.warn(`Failed to download cover for ${metadata.bookId}:`, error);
-      }
-    }
-
-    return {
-      bookData,
-      coverData,
-      fullMetadata,
-    };
-  }
-
-  /**
-   * 下载完整元信息
-   */
-  async downloadBookMetadata(
-    metadataPath: string
-  ): Promise<import('../../types/cloudStorage').CloudBookFullMetadata> {
-    if (!this.s3Client) {
-      throw new Error('S3 client not initialized');
-    }
-
-    const command = new GetObjectCommand({
+    const createResponse = await this.s3Client.send(new CreateMultipartUploadCommand({
       Bucket: this.bucket,
-      Key: metadataPath,
-    });
+      Key: key,
+      ContentType: this.getContentType(key),
+      Metadata: metadata,
+    }));
 
-    const response = await this.s3Client.send(command);
-
-    if (!response.Body) {
-      throw new Error('Empty metadata response body');
+    if (!createResponse.UploadId) {
+      throw new Error('Failed to create multipart upload');
     }
 
-    const text = await response.Body.transformToString();
-    const meta = JSON.parse(text);
-
-    return {
-      ...meta,
-      localModifiedAt: meta.localModifiedAt,
-      remoteModifiedAt: meta.remoteModifiedAt,
-    };
-  }
-
-  /**
-   * 下载封面图片
-   */
-  private async downloadCover(coverPath: string): Promise<Blob> {
-    if (!this.s3Client) {
-      throw new Error('S3 client not initialized');
-    }
-
-    const command = new GetObjectCommand({
-      Bucket: this.bucket,
-      Key: coverPath,
-    });
-
-    const response = await this.s3Client.send(command);
-
-    if (!response.Body) {
-      throw new Error('Empty cover response body');
-    }
-
-    const byteArray = await response.Body.transformToByteArray();
-    return new Blob([byteArray as unknown as BlobPart], { type: 'image/jpeg' });
-  }
-
-  /**
-   * 检查书籍各部分是否存在
-   */
-  async checkBookPartsExists(
-    metadata: CloudBookMetadata
-  ): Promise<{
-    metadata: boolean;
-    cover: boolean;
-    book: boolean;
-  }> {
-    if (!this.s3Client) {
-      throw new Error('S3 client not initialized');
-    }
-
-    const results = {
-      metadata: false,
-      cover: false,
-      book: false,
-    };
+    const uploadId = createResponse.UploadId;
 
     try {
-      // 检查元信息
-      const metadataCommand = new HeadObjectCommand({
-        Bucket: this.bucket,
-        Key: metadata.metadataPath,
-      });
-      await this.s3Client.send(metadataCommand);
-      results.metadata = true;
-    } catch {
-      results.metadata = false;
-    }
+      const etags: { ETag: string; PartNumber: number }[] = [];
 
-    try {
-      // 检查封面
-      if (metadata.coverPath) {
-        const coverCommand = new HeadObjectCommand({
+      for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+        const start = (partNumber - 1) * this.PART_SIZE;
+        const end = Math.min(start + this.PART_SIZE, blob.size);
+        const partBlob = blob.slice(start, end);
+        const partBuffer = await partBlob.arrayBuffer();
+
+        const uploadResponse = await this.s3Client.send(new UploadPartCommand({
           Bucket: this.bucket,
-          Key: metadata.coverPath,
-        });
-        await this.s3Client.send(coverCommand);
-        results.cover = true;
+          Key: key,
+          UploadId: uploadId,
+          PartNumber: partNumber,
+          Body: new Uint8Array(partBuffer),
+        }));
+
+        if (!uploadResponse.ETag) {
+          throw new Error(`Failed to upload part ${partNumber}`);
+        }
+
+        etags.push({ ETag: uploadResponse.ETag, PartNumber: partNumber });
+        uploadedBytes = end;
+
+        if (onProgress) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = elapsed > 0 ? uploadedBytes / elapsed : 0;
+          onProgress({
+            loaded: uploadedBytes,
+            total: blob.size,
+            percent: Math.round((uploadedBytes / blob.size) * 100),
+            speed,
+          });
+        }
       }
-    } catch {
-      results.cover = false;
+
+      await this.s3Client.send(new CompleteMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: { Parts: etags },
+      }));
+    } catch (error) {
+      try {
+        await this.s3Client.send(new AbortMultipartUploadCommand({
+          Bucket: this.bucket,
+          Key: key,
+          UploadId: uploadId,
+        }));
+      } catch {
+        // Ignore abort errors
+      }
+      throw error;
     }
+  }
+
+  async resumeMultipartUpload(
+    key: string,
+    uploadId: string,
+    blob: Blob,
+    totalParts: number,
+    partSize: number,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<void> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const startTime = Date.now();
+    let uploadedBytes = 0;
 
     try {
-      // 检查书籍文件
-      const bookCommand = new HeadObjectCommand({
+      const listResponse = await this.s3Client.send(new ListPartsCommand({
         Bucket: this.bucket,
-        Key: metadata.remotePath,
-      });
-      await this.s3Client.send(bookCommand);
-      results.book = true;
-    } catch {
-      results.book = false;
+        Key: key,
+        UploadId: uploadId,
+      }));
+
+      const existingParts = new Map(
+        listResponse.Parts?.map(p => [p.PartNumber, p.ETag]) || []
+      );
+
+      const etags: { ETag: string; PartNumber: number }[] = [];
+
+      for (const [partNum, etag] of existingParts) {
+        if (etag && partNum !== undefined) {
+          etags.push({ ETag: etag, PartNumber: partNum });
+        }
+      }
+
+      for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+        if (existingParts.has(partNumber)) continue;
+
+        const start = (partNumber - 1) * partSize;
+        const end = Math.min(start + partSize, blob.size);
+        const partBlob = blob.slice(start, end);
+        const partBuffer = await partBlob.arrayBuffer();
+
+        const uploadResponse = await this.s3Client.send(new UploadPartCommand({
+          Bucket: this.bucket,
+          Key: key,
+          UploadId: uploadId,
+          PartNumber: partNumber,
+          Body: new Uint8Array(partBuffer),
+        }));
+
+        if (!uploadResponse.ETag) {
+          throw new Error(`Failed to upload part ${partNumber}`);
+        }
+
+        etags.push({ ETag: uploadResponse.ETag, PartNumber: partNumber });
+        uploadedBytes = end;
+
+        if (onProgress) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = elapsed > 0 ? uploadedBytes / elapsed : 0;
+          onProgress({
+            loaded: uploadedBytes,
+            total: blob.size,
+            percent: Math.round((uploadedBytes / blob.size) * 100),
+            speed,
+          });
+        }
+      }
+
+      await this.s3Client.send(new CompleteMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: { Parts: etags },
+      }));
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // ==================== Atomic Upload Helpers ====================
+
+  private async uploadToTemp(
+    key: string,
+    data: Blob,
+    metadata?: Record<string, string>
+  ): Promise<void> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
     }
 
-    return results;
+    if (data.size > this.MULTIPART_THRESHOLD) {
+      await this.uploadWithMultipart(key, data, metadata);
+    } else {
+      const arrayBuffer = await data.arrayBuffer();
+      await this.s3Client.send(new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: new Uint8Array(arrayBuffer),
+        ContentType: this.getContentType(key),
+        Metadata: metadata,
+      }));
+    }
+  }
+
+  private async commitUpload(
+    _uploadId: string,
+    _bookId: string,
+    copyMap: Record<string, string>
+  ): Promise<void> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    for (const [sourceKey, destKey] of Object.entries(copyMap)) {
+      await this.s3Client.send(new CopyObjectCommand({
+        Bucket: this.bucket,
+        CopySource: `${this.bucket}/${sourceKey}`,
+        Key: destKey,
+      }));
+    }
+  }
+
+  async rollbackUpload(uploadId: string): Promise<void> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const tempPrefix = `${this.rootPath}/_temp/${uploadId}/`;
+
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: tempPrefix,
+      });
+
+      const response = await this.s3Client.send(command);
+
+      if (response.Contents) {
+        for (const obj of response.Contents) {
+          if (obj.Key) {
+            await this.s3Client.send(new DeleteObjectCommand({
+              Bucket: this.bucket,
+              Key: obj.Key,
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to rollback temp files:', error);
+    }
+  }
+
+  async cleanupTempFiles(maxAge: number = 24 * 60 * 60 * 1000): Promise<number> {
+    if (!this.s3Client) {
+      throw new Error('S3 client not initialized');
+    }
+
+    const tempPrefix = `${this.rootPath}/_temp/`;
+    let deletedCount = 0;
+
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: tempPrefix,
+      });
+
+      const response = await this.s3Client.send(command);
+
+      if (response.Contents) {
+        for (const obj of response.Contents) {
+          if (obj.Key && obj.LastModified) {
+            const fileAge = Date.now() - obj.LastModified.getTime();
+            if (fileAge > maxAge) {
+              await this.s3Client.send(new DeleteObjectCommand({
+                Bucket: this.bucket,
+                Key: obj.Key,
+              }));
+              deletedCount++;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to cleanup temp files:', error);
+    }
+
+    return deletedCount;
+  }
+
+  // ==================== Sync Methods ====================
+
+  protected async syncSingleBookProgress(bookId: string, _options?: SyncOptions): Promise<void> {
+    const { getProgress, saveProgress } = await import('../../db');
+
+    const localProgress = await getProgress(bookId);
+    const remoteProgress = await this.downloadProgress(bookId);
+
+    if (!localProgress && !remoteProgress) return;
+
+    if (!remoteProgress && localProgress) {
+      const cloudProgress: CloudReadingProgress = {
+        bookId,
+        currentChapter: localProgress.currentChapter,
+        currentPosition: localProgress.currentPosition,
+        lastReadAt: new Date(localProgress.lastReadAt),
+        totalProgress: localProgress.totalProgress,
+        deviceId: 'local',
+        version: Date.now(),
+      };
+      await this.uploadProgress(bookId, cloudProgress);
+      return;
+    }
+
+    if (remoteProgress && !localProgress) {
+      await saveProgress({
+        bookId,
+        currentChapter: remoteProgress.currentChapter,
+        currentPosition: remoteProgress.currentPosition,
+        lastReadAt: remoteProgress.lastReadAt,
+        totalProgress: remoteProgress.totalProgress,
+      });
+      return;
+    }
+
+    if (localProgress && remoteProgress) {
+      const localTime = new Date(localProgress.lastReadAt).getTime();
+      const remoteTime = remoteProgress.lastReadAt.getTime();
+
+      let merged: CloudReadingProgress;
+
+      if (remoteTime > localTime) {
+        merged = {
+          ...remoteProgress,
+          currentPosition: Math.max(localProgress.currentPosition, remoteProgress.currentPosition),
+          version: Date.now(),
+        };
+      } else {
+        merged = {
+          bookId,
+          currentChapter: localProgress.currentChapter,
+          currentPosition: Math.max(localProgress.currentPosition, remoteProgress.currentPosition),
+          lastReadAt: new Date(localProgress.lastReadAt),
+          totalProgress: Math.max(localProgress.totalProgress, remoteProgress.totalProgress),
+          deviceId: 'local',
+          version: Date.now(),
+        };
+      }
+
+      await this.uploadProgress(bookId, merged);
+
+      await saveProgress({
+        bookId,
+        currentChapter: merged.currentChapter,
+        currentPosition: merged.currentPosition,
+        lastReadAt: merged.lastReadAt,
+        totalProgress: merged.totalProgress,
+      });
+    }
+  }
+
+  protected async syncSingleBookBookmarks(bookId: string, _options?: SyncOptions): Promise<void> {
+    const { getBookmarks, addBookmark, deleteBookmark } = await import('../../db');
+
+    const localBookmarks = await getBookmarks(bookId);
+    const remoteBookmarks = await this.downloadBookmarks(bookId);
+
+    if (localBookmarks.length === 0 && remoteBookmarks.length === 0) return;
+
+    const bookmarkMap = new Map<string, CloudBookmark>();
+
+    for (const bm of remoteBookmarks) {
+      const key = `${bm.chapterId}:${bm.position}`;
+      bookmarkMap.set(key, bm);
+    }
+
+    for (const bm of localBookmarks) {
+      const key = `${bm.chapterId}:${bm.position}`;
+      const existing = bookmarkMap.get(key);
+      if (!existing || new Date(bm.createdAt) > new Date(existing.createdAt)) {
+        bookmarkMap.set(key, {
+          id: bm.id,
+          bookId: bm.bookId,
+          chapterId: bm.chapterId,
+          position: bm.position,
+          text: bm.text,
+          createdAt: new Date(bm.createdAt),
+        });
+      }
+    }
+
+    const mergedBookmarks = Array.from(bookmarkMap.values());
+
+    await this.uploadBookmarks(bookId, mergedBookmarks);
+
+    const mergedIds = new Set(mergedBookmarks.map(b => b.id));
+    const localIds = new Set(localBookmarks.map(b => b.id));
+
+    for (const bm of localBookmarks) {
+      if (!mergedIds.has(bm.id)) {
+        await deleteBookmark(bm.id);
+      }
+    }
+
+    for (const bm of mergedBookmarks) {
+      if (!localIds.has(bm.id)) {
+        await addBookmark({
+          id: bm.id,
+          bookId: bm.bookId,
+          chapterId: bm.chapterId,
+          position: bm.position,
+          text: bm.text,
+          createdAt: new Date(bm.createdAt),
+        } as Bookmark);
+      }
+    }
+  }
+
+  // ==================== Utility Methods ====================
+
+  private getContentType(key: string): string {
+    if (key.endsWith('.pdf')) return 'application/pdf';
+    if (key.endsWith('.epub')) return 'application/epub+zip';
+    if (key.endsWith('.json')) return 'application/json';
+    if (key.endsWith('.cover')) return 'image/jpeg';
+    if (key.endsWith('.jpg') || key.endsWith('.jpeg')) return 'image/jpeg';
+    if (key.endsWith('.png')) return 'image/png';
+    return 'application/octet-stream';
   }
 }

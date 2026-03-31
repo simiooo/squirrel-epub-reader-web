@@ -438,6 +438,18 @@ export interface CloudStorageConnector {
   syncBook(bookId: string, options?: SyncOptions): Promise<SyncResult>;
   
   /**
+   * 同步单本书的阅读进度
+   * @param bookId 书籍ID
+   */
+  syncBookProgress(bookId: string, options?: SyncOptions): Promise<void>;
+  
+  /**
+   * 同步单本书的书签
+   * @param bookId 书籍ID
+   */
+  syncBookBookmarks(bookId: string, options?: SyncOptions): Promise<void>;
+  
+  /**
    * 解决同步冲突
    * @param conflict 冲突信息
    * @param resolution 解决方案（'local' | 'remote' | 'merge'）
@@ -462,6 +474,62 @@ export interface CloudStorageConnector {
    * @returns 取消监听的函数
    */
   onSyncProgress(callback: (progress: number, message: string) => void): () => void;
+}
+
+/**
+ * 上传进度
+ */
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+  speed: number;
+}
+
+/**
+ * 下载进度
+ */
+export interface DownloadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+}
+
+/**
+ * 上传会话（用于断点续传）
+ */
+export interface UploadSession {
+  uploadId: string;
+  bookId: string;
+  connectorId: string;
+  key: string;
+  totalSize: number;
+  uploadedParts: number[];
+  totalParts: number;
+  partSize: number;
+  createdAt: number;
+  expiresAt: number;
+}
+
+/**
+ * 进度同步结果
+ */
+export interface SyncProgressResult {
+  success: boolean;
+  strategy: 'local_wins' | 'remote_wins' | 'merge';
+  localVersion?: CloudReadingProgress;
+  remoteVersion?: CloudReadingProgress;
+  mergedVersion?: CloudReadingProgress;
+}
+
+/**
+ * 书签同步结果
+ */
+export interface SyncBookmarkResult {
+  success: boolean;
+  added: number;
+  removed: number;
+  merged: number;
 }
 
 // ==================== 连接器工厂 ====================

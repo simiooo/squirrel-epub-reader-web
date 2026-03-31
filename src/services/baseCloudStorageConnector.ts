@@ -175,7 +175,6 @@ export abstract class BaseCloudStorageConnector implements CloudStorageConnector
     };
 
     try {
-      // 同步单本书籍的完整数据
       if (options?.syncBooks !== false) {
         await this.syncSingleBook(bookId, options);
         result.booksUpdated = 1;
@@ -196,6 +195,14 @@ export abstract class BaseCloudStorageConnector implements CloudStorageConnector
       result.success = false;
       throw error;
     }
+  }
+
+  async syncBookProgress(bookId: string, options?: SyncOptions): Promise<void> {
+    await this.syncSingleBookProgress(bookId, options);
+  }
+
+  async syncBookBookmarks(bookId: string, options?: SyncOptions): Promise<void> {
+    await this.syncSingleBookBookmarks(bookId, options);
   }
 
   async resolveConflict(
@@ -324,39 +331,33 @@ export abstract class BaseCloudStorageConnector implements CloudStorageConnector
     throw lastError;
   }
 
-  // ==================== 私有辅助方法 ====================
+  // ==================== 受保护方法（供子类使用）====================
   
-  private async syncBooks(_options: SyncOptions): Promise<{ updated: number; conflicts: SyncConflict[] }> {
-    // 子类应覆盖此方法来提供具体的同步逻辑
+  protected async syncBooks(_options: SyncOptions): Promise<{ updated: number; conflicts: SyncConflict[] }> {
     throw new Error('syncBooks must be implemented by subclass');
   }
 
-  private async syncAllProgressData(_options: SyncOptions): Promise<{ updated: number; conflicts: SyncConflict[] }> {
-    // 子类应覆盖此方法来提供具体的同步逻辑
+  protected async syncAllProgressData(_options: SyncOptions): Promise<{ updated: number; conflicts: SyncConflict[] }> {
     throw new Error('syncAllProgressData must be implemented by subclass');
   }
 
-  private async syncAllBookmarks(_options: SyncOptions): Promise<{ updated: number; conflicts: SyncConflict[] }> {
-    // 子类应覆盖此方法来提供具体的同步逻辑
+  protected async syncAllBookmarks(_options: SyncOptions): Promise<{ updated: number; conflicts: SyncConflict[] }> {
     throw new Error('syncAllBookmarks must be implemented by subclass');
   }
 
-  private async syncSingleBook(_bookId: string, _options?: SyncOptions): Promise<void> {
-    // 子类应覆盖此方法
+  protected async syncSingleBook(_bookId: string, _options?: SyncOptions): Promise<void> {
     throw new Error('syncSingleBook must be implemented by subclass');
   }
 
-  private async syncSingleBookProgress(_bookId: string, _options?: SyncOptions): Promise<void> {
-    // 子类应覆盖此方法
+  protected async syncSingleBookProgress(_bookId: string, _options?: SyncOptions): Promise<void> {
     throw new Error('syncSingleBookProgress must be implemented by subclass');
   }
 
-  private async syncSingleBookBookmarks(_bookId: string, _options?: SyncOptions): Promise<void> {
-    // 子类应覆盖此方法
+  protected async syncSingleBookBookmarks(_bookId: string, _options?: SyncOptions): Promise<void> {
     throw new Error('syncSingleBookBookmarks must be implemented by subclass');
   }
 
-  private async getBookmarkCount(bookId: string): Promise<number> {
+  protected async getBookmarkCount(bookId: string): Promise<number> {
     const bookmarks = await this.downloadBookmarks(bookId);
     return bookmarks.length;
   }
