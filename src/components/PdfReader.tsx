@@ -422,6 +422,7 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book, onClose }) => {
           ) : (
             <div
               ref={listRef}
+              tabIndex={0}
               style={{
                 height: '100%',
                 overflow: 'auto',
