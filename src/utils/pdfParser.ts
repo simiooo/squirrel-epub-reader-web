@@ -8,16 +8,10 @@ let workerInitialized = false;
 async function initWorker(): Promise<void> {
   if (workerInitialized) return;
   
-  try {
-    const worker = await import('pdfjs-dist/build/pdf.worker.mjs');
-    const workerBlob = new Blob([worker.default], { type: 'text/javascript' });
-    pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
-    workerInitialized = true;
-  } catch (e) {
-    console.warn('Failed to load PDF worker dynamically, using CDN fallback:', e);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-    workerInitialized = true;
-  }
+  // 使用 CDN worker，它已内联 OpenJPEG WASM 等所有解码器资源
+  // Blob URL 方式会导致 WASM 文件路径解析失败（JpxError: OpenJPEG failed to initialize）
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  workerInitialized = true;
 }
 
 interface PdfInfo {
