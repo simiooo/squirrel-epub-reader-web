@@ -69,7 +69,7 @@ pnpm build
 - **本地存储**：IndexedDB (Dexie.js)
 - **云端存储**：S3-compatible API
 - **国际化**：i18next
-- **构建工具**：R性llow (Vite 6+)
+- **构建工具**：Rolldown (Vite 8+)
 
 ## 云存储配置指南
 
@@ -187,7 +187,7 @@ pnpm build
 - **Local Storage**: IndexedDB (Dexie.js)
 - **Cloud Storage**: S3-compatible API
 - **Internationalization**: i18next
-- **Build**: Rolldown (Vite 6+)
+- **Build**: Rolldown (Vite 8+)
 
 ## Cloud Storage Configuration
 
