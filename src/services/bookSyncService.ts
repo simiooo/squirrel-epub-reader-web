@@ -9,7 +9,6 @@ import { generateBookId, generateChecksum } from '../utils/bookHash';
 import { S3Connector } from './connectors/s3Connector';
 import { DropboxConnector } from './connectors/dropboxConnector';
 import { GoogleDriveConnector } from './connectors/googleDriveConnector';
-import { BaseCloudStorageConnector } from './baseCloudStorageConnector';
 import type { Book, StoredCloudBook, StoredConnector, ConflictInfo } from '../types';
 import type { CloudStorageConnector, CloudBookMetadata, SyncProgressResult, SyncBookmarkResult } from '../types/cloudStorage';
 

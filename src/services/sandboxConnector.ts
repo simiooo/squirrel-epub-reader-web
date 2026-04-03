@@ -442,6 +442,14 @@ export class SandboxConnector implements CloudStorageConnector {
     return result;
   }
 
+  async syncBookProgress(bookId: string, _options?: SyncOptions): Promise<void> {
+    await this.syncBook(bookId);
+  }
+
+  async syncBookBookmarks(bookId: string, _options?: SyncOptions): Promise<void> {
+    await this.syncBook(bookId);
+  }
+
   async resolveConflict(
     _conflict: SyncConflict,
     _resolution: 'local' | 'remote' | 'merge'

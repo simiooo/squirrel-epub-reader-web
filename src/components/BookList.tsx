@@ -130,6 +130,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger, onSyncSucces
           md: 4,
           lg: 5,
           xl: 6,
+          xxl: 8,
         }}
         dataSource={books}
         loading={loading}

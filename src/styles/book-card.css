@@ -7,6 +7,9 @@
   background: var(--antd-color-bg-container, #fff);
   box-shadow: 0 2px 12px rgba(62, 39, 35, 0.06);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  max-width: 200px;
+  margin: 0 auto;
 }
 
 .book-card:hover {
