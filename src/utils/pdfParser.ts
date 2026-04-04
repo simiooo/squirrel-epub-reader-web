@@ -10,7 +10,7 @@ async function initWorker(): Promise<void> {
   
   // 使用 CDN worker，它已内联 OpenJPEG WASM 等所有解码器资源
   // Blob URL 方式会导致 WASM 文件路径解析失败（JpxError: OpenJPEG failed to initialize）
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.min.mjs';
   workerInitialized = true;
 }
 

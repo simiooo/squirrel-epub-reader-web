@@ -1,8 +1,20 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist';
 import * as pdfjsLib from 'pdfjs-dist';
-// 引入 pdf.js 的 CSS 样式（用于文本层正确渲染）
-import 'pdfjs-dist/web/pdf_viewer.css';
+// 从 CDN 加载 pdf.js 的 CSS 样式（用于文本层正确渲染）
+const pdfViewerCssUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf_viewer.min.css';
+// 动态加载 CSS 并防止重复加载
+let cssLoaded = false;
+function loadPdfViewerCss() {
+  if (cssLoaded || document.querySelector(`link[href="${pdfViewerCssUrl}"]`)) {
+    return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = pdfViewerCssUrl;
+  document.head.appendChild(link);
+  cssLoaded = true;
+}
 
 interface PdfPageProps {
   pageNumber: number;
@@ -14,6 +26,9 @@ interface PdfPageProps {
   onRenderError?: (error: Error) => void;
   className?: string;
 }
+
+// 在模块加载时立即加载 CSS
+loadPdfViewerCss();
 
 export const PdfPage: React.FC<PdfPageProps> = React.memo(({
   pageNumber,
