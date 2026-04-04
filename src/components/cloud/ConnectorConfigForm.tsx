@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Form, Input, Switch, InputNumber, Button, Space, message, Divider, Alert, Steps, Select } from 'antd';
+import { Modal, Form, Input, Switch, InputNumber, Button, Space, message, Divider, Alert, Steps, Select, theme } from 'antd';
 import { CheckCircleOutlined, LoadingOutlined, LoginOutlined, DisconnectOutlined } from '@ant-design/icons';
 import type { StoredConnector } from '../../types';
 import type { ConnectorTypeInfo } from '../../types/cloudStorage';
@@ -33,6 +33,7 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
   onCancel,
 }) => {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   const [form] = Form.useForm<FormValues>();
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -470,7 +471,7 @@ export const ConnectorConfigForm: React.FC<ConnectorConfigFormProps> = ({
                   {' '}{t('cloudStorage.config.testConnection')}
                 </Button>
                 {testResult && (
-                  <span style={{ color: testResult.success ? '#52c41a' : '#ff4d4f' }}>
+                  <span style={{ color: testResult.success ? token.colorSuccess : token.colorError }}>
                     {testResult.message}
                   </span>
                 )}

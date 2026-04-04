@@ -58,7 +58,7 @@ export const GestureIndicator: React.FC<GestureIndicatorProps> = ({ onClick }) =
     }
   };
 
-  const textColor = enabled ? '#1890ff' : token.colorTextSecondary;
+  const textColor = enabled ? token.colorPrimary : token.colorTextSecondary;
 
   return (
     <Tooltip title={`${t('gesture.title')} - ${t('gesture.clickToToggle')}`}>
@@ -70,16 +70,16 @@ export const GestureIndicator: React.FC<GestureIndicatorProps> = ({ onClick }) =
           gap: 4,
           padding: '4px 8px',
           borderRadius: 4,
-          backgroundColor: 'rgba(0, 0, 0, 0.02)',
+          backgroundColor: token.colorFillTertiary,
           cursor: 'pointer',
           transition: 'background-color 0.2s',
-          border: enabled ? '1px solid #1890ff' : '1px solid transparent',
+          border: enabled ? `1px solid ${token.colorPrimary}` : '1px solid transparent',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.06)';
+          e.currentTarget.style.backgroundColor = token.colorFillSecondary;
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.02)';
+          e.currentTarget.style.backgroundColor = token.colorFillTertiary;
         }}
       >
         <Badge status={getStatusColor()} />

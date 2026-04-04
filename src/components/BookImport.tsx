@@ -219,7 +219,7 @@ export const BookImport: React.FC<BookImportProps> = ({ onImport }) => {
                   objectFit: 'contain',
                   marginBottom: 20,
                   borderRadius: 8,
-                  boxShadow: '0 4px 16px rgba(62, 39, 35, 0.12)',
+                  boxShadow: token.boxShadowSecondary,
                 }}
               />
             ) : (

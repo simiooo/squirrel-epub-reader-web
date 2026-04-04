@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Form, Select, Button, Spin, message, Space, Tag, Empty, Alert, Progress, Typography } from 'antd';
+import { Modal, Form, Select, Button, Spin, message, Space, Tag, Empty, Alert, Progress, Typography, theme } from 'antd';
 import { CloudUploadOutlined, CheckCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import { getAllConnectors } from '../../db';
 import type { StoredConnector, Book } from '../../types';
@@ -24,6 +24,7 @@ export const SyncToCloudModal: React.FC<SyncToCloudModalProps> = ({
   onSuccess,
 }) => {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   const [form] = Form.useForm();
   const [connectors, setConnectors] = useState<StoredConnector[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,7 +190,7 @@ export const SyncToCloudModal: React.FC<SyncToCloudModalProps> = ({
               </Form.Item>
 
               {book && (
-                <div style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 8 }}>
+                <div style={{ marginBottom: 16, padding: 12, background: token.colorFillSecondary, borderRadius: 8 }}>
                   <Text strong style={{ display: 'block', marginBottom: 4 }}>
                     {book.metadata.title}
                   </Text>

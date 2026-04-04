@@ -1,12 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Switch, Slider, Typography, Space, Card } from 'antd';
+import { Switch, Slider, Typography, Space, Card, theme } from 'antd';
 import { useGestureStore } from '../../stores/gestureStore';
 
 const { Text } = Typography;
 
 export const GestureSettingsTab: React.FC = () => {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
 
   const enabled = useGestureStore((state) => state.settings.enabled);
   const sensitivity = useGestureStore((state) => state.settings.sensitivity);
@@ -52,7 +53,7 @@ export const GestureSettingsTab: React.FC = () => {
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              color: 'rgba(0, 0, 0, 0.45)',
+              color: token.colorTextTertiary,
               fontSize: 12,
             }}
           >
@@ -80,7 +81,7 @@ export const GestureSettingsTab: React.FC = () => {
           <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
             {t('gesture.instructions')}
           </Text>
-          <Card size="small" style={{ background: 'rgba(0, 0, 0, 0.02)' }}>
+          <Card size="small" style={{ background: token.colorFillTertiary }}>
             <Space direction="vertical" size="small">
               <Text>
                 <span style={{ marginRight: 8 }}>🖐️</span>

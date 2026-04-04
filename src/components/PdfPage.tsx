@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { theme as antdTheme } from 'antd';
 import type { PDFPageProxy } from 'pdfjs-dist';
 import * as pdfjsLib from 'pdfjs-dist';
 // 从 CDN 加载 pdf.js 的 CSS 样式（用于文本层正确渲染）
@@ -305,12 +306,14 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({
     };
   }, []);
 
+  const { token } = antdTheme.useToken();
+
   const containerStyle: React.CSSProperties = {
     width: `${width}px`,
     height: `${height}px`,
     position: 'relative',
-    backgroundColor: '#fff',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    backgroundColor: token.colorBgContainer,
+    boxShadow: token.boxShadow,
     margin: '0 auto 16px',
     overflow: 'hidden',
   };
@@ -332,7 +335,7 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
-    color: '#999',
+    color: token.colorTextTertiary,
   };
 
   const errorStyle: React.CSSProperties = {
@@ -340,7 +343,7 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
-    color: '#ff4d4f',
+    color: token.colorError,
     textAlign: 'center',
   };
 

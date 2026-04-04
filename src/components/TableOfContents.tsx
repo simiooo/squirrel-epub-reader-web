@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Tree, Empty, Button, Typography } from 'antd';
+import { Tree, Empty, Button, Typography, theme } from 'antd';
 import { FileTextOutlined, ReadOutlined, MenuFoldOutlined, BookOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import type { Chapter } from '../types';
 
@@ -29,6 +29,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   visible = true,
   onToggle,
 }) => {
+  const { token } = theme.useToken();
   // State for manually controlled expanded keys
   const [userExpandedKeys, setUserExpandedKeys] = useState<Set<string>>(new Set());
 
@@ -43,7 +44,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
             <span
               style={{
                 fontWeight: isCurrent ? 600 : 400,
-                color: isCurrent ? '#1890ff' : 'inherit',
+                color: isCurrent ? token.colorPrimary : 'inherit',
               }}
             >
               {isCurrent && <ReadOutlined style={{ marginRight: 4 }} />}
@@ -51,7 +52,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
             </span>
           ),
           key: chapter.id,
-          icon: <FileTextOutlined style={{ color: isCurrent ? '#1890ff' : undefined }} />,
+          icon: <FileTextOutlined style={{ color: isCurrent ? token.colorPrimary : undefined }} />,
           children: chapter.children ? convertToTreeData(chapter.children) : undefined,
           chapter,
           isCurrent,
@@ -60,7 +61,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     };
 
     return convertToTreeData(chapters);
-  }, [chapters, currentChapterId]);
+  }, [chapters, currentChapterId, token.colorPrimary]);
 
   // Calculate keys that should be expanded to show current chapter
   const autoExpandedKeys = useMemo(() => {

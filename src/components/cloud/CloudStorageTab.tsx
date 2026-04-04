@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Card, List, Tag, Space, message, Spin, Empty, Tabs, Form, Input, Modal } from 'antd';
+import { Button, Card, List, Tag, Space, message, Spin, Empty, Tabs, Form, Input, Modal, theme } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, CheckCircleOutlined, ExclamationCircleOutlined, CloudSyncOutlined } from '@ant-design/icons';
 import { getAllConnectors, addConnector, updateConnector, deleteConnector } from '../../db';
 import type { ConnectorTypeInfo } from '../../types/cloudStorage';
@@ -69,6 +69,7 @@ const PRESET_CONNECTORS: Array<{ type: string; name: string; typeInfo: Connector
 
 export const CloudStorageTab: React.FC<CloudStorageTabProps> = ({ onSyncComplete }) => {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   const [connectors, setConnectors] = useState<StoredConnector[]>([]);
   const [isSelectTypeModalVisible, setIsSelectTypeModalVisible] = useState(false);
   const [isConfigModalVisible, setIsConfigModalVisible] = useState(false);
@@ -225,7 +226,7 @@ export const CloudStorageTab: React.FC<CloudStorageTabProps> = ({ onSyncComplete
         ]}
       >
         <List.Item.Meta
-          avatar={<CloudSyncOutlined style={{ fontSize: 32, color: '#1890ff' }} />}
+          avatar={<CloudSyncOutlined style={{ fontSize: 32, color: token.colorPrimary }} />}
           title={
             <Space>
               <span>{connector.name}</span>
@@ -236,7 +237,7 @@ export const CloudStorageTab: React.FC<CloudStorageTabProps> = ({ onSyncComplete
             <Space direction="vertical" size={0}>
               <span>{typeInfo?.displayName || connector.type}</span>
               {connector.lastSyncAt && (
-                <span style={{ fontSize: 12, color: '#999' }}>
+                <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
                   {t('cloudStorage.lastSync')}: {new Date(connector.lastSyncAt).toLocaleString()}
                 </span>
               )}
@@ -326,7 +327,7 @@ export const CloudStorageTab: React.FC<CloudStorageTabProps> = ({ onSyncComplete
         </Form.Item>
 
         {validationErrors.length > 0 && (
-          <div style={{ color: '#ff4d4f', marginBottom: 16 }}>
+          <div style={{ color: token.colorError, marginBottom: 16 }}>
             <strong>{t('cloudStorage.validationErrors')}:</strong>
             <ul>
               {validationErrors.map((error, index) => (

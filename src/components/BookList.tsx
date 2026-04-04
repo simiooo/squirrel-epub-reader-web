@@ -10,6 +10,7 @@ import {
   Popconfirm,
   Tag,
   Progress,
+  theme,
 } from 'antd';
 import {
   DeleteOutlined,
@@ -29,6 +30,7 @@ interface BookListProps {
 
 export const BookList: React.FC<BookListProps> = ({ refreshTrigger, onSyncSuccess }) => {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   const navigate = useNavigate();
   const [books, setBooks] = useState<Book[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, ReadingProgress>>(new Map());
@@ -236,7 +238,7 @@ export const BookList: React.FC<BookListProps> = ({ refreshTrigger, onSyncSucces
                           }
                         }}
                         disabled={isSynced}
-                        style={isSynced ? { background: 'rgba(82, 196, 26, 0.7)' } : undefined}
+                        style={isSynced ? { background: `${token.colorSuccess}b3` } : undefined}
                       >
                         {isSynced ? t('cloudStorage.cloudBooks.syncStatus.synced') : t('cloudStorage.sync')}
                       </Button>
