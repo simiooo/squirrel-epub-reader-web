@@ -965,3 +965,56 @@ a,
 .gesture-cursor[data-hovering="true"] {
   transform: scale(1.2);
 }
+
+/* ==================== EPUB SIDEBAR / ASIDE STYLES ==================== */
+/* Sidebar (data-type="sidebar") - Callout/note box for supplementary content */
+
+.chapter-content aside[data-type="sidebar"] {
+  margin: 1.5em 0;
+  padding: 1em 1.25em;
+  background-color: var(--antd-color-bg-secondary, #f5f5f5);
+  border-left: 4px solid var(--antd-color-primary, #1890ff);
+  border-radius: 0 6px 6px 0;
+}
+
+.chapter-content aside[data-type="sidebar"] .sidebar {
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+}
+
+.chapter-content aside[data-type="sidebar"] h1,
+.chapter-content aside[data-type="sidebar"] h2,
+.chapter-content aside[data-type="sidebar"] h3 {
+  margin-top: 0;
+  margin-bottom: 0.75em;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--antd-color-text, #262626);
+}
+
+.chapter-content aside[data-type="sidebar"] p {
+  margin: 0 0 0.75em 0;
+  line-height: 1.6;
+}
+
+.chapter-content aside[data-type="sidebar"] p:last-child {
+  margin-bottom: 0;
+}
+
+.chapter-content aside[data-type="sidebar"] em,
+.chapter-content aside[data-type="sidebar"] a {
+  font-style: italic;
+}
+
+.chapter-content aside[data-type="sidebar"] a.hyperlink {
+  font-style: normal;
+  color: var(--antd-color-link, #1890ff);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chapter-content aside[data-type="sidebar"] a.hyperlink:hover {
+  color: var(--antd-color-link-hover, #40a9ff);
+}
