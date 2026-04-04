@@ -416,7 +416,7 @@
   border: 1px solid var(--antd-color-border-secondary, #d9d9d9);
   border-radius: var(--antd-border-radius-sm, 3px);
   padding: 0.1em 0.4em;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 0 var(--antd-color-border-secondary, rgba(0, 0, 0, 0.1));
 }
 
 /* ==================== SPAN ==================== */
@@ -932,7 +932,7 @@ a.gesture-button-hover {
 
 /* 卡片的手势hover（除了book-card已在book-card.css中定义） */
 .ant-card.gesture-hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--antd-box-shadow, 0 4px 12px rgba(0, 0, 0, 0.15));
   transform: translateY(-2px);
 }
 
@@ -966,55 +966,89 @@ a,
   transform: scale(1.2);
 }
 
-/* ==================== EPUB SIDEBAR / ASIDE STYLES ==================== */
-/* Sidebar (data-type="sidebar") - Callout/note box for supplementary content */
+/* ==================== ASIDE / SIDEBAR STYLES ==================== */
+/* Supplementary content boxes with consistent Ant Design theming */
 
+.chapter-content aside,
 .chapter-content aside[data-type="sidebar"] {
-  margin: 1.5em 0;
-  padding: 1em 1.25em;
-  background-color: var(--antd-color-bg-secondary, #f5f5f5);
-  border-left: 4px solid var(--antd-color-primary, #1890ff);
-  border-radius: 0 6px 6px 0;
+  margin: var(--antd-margin-lg, 1.5em) 0;
+  padding: var(--antd-padding, 1em) var(--antd-padding-md, 1.25em);
+  background-color: var(--antd-color-fill-secondary, #f5f5f5);
+  border: 1px solid var(--antd-color-border-secondary, #f0f0f0);
+  border-radius: var(--antd-border-radius, 6px);
+  color: var(--antd-color-text, rgba(0, 0, 0, 0.88));
 }
 
-.chapter-content aside[data-type="sidebar"] .sidebar {
-  margin: 0;
-  padding: 0;
-  background-color: transparent;
-  border: none;
+/* Nested sidebar wrapper - inherit styles from parent aside */
+.chapter-content aside > .sidebar,
+.chapter-content aside > div.sidebar {
+  margin: 0 !important;
+  padding: 0 !important;
+  background-color: transparent !important;
+  border: none !important;
 }
 
-.chapter-content aside[data-type="sidebar"] h1,
-.chapter-content aside[data-type="sidebar"] h2,
-.chapter-content aside[data-type="sidebar"] h3 {
+/* Headings in aside - smaller than regular headings */
+.chapter-content aside h1,
+.chapter-content aside h2,
+.chapter-content aside h3,
+.chapter-content aside h4,
+.chapter-content aside h5,
+.chapter-content aside h6 {
   margin-top: 0;
-  margin-bottom: 0.75em;
-  font-size: 1em;
+  margin-bottom: var(--antd-margin-sm, 0.5em);
+  font-size: var(--antd-font-size-lg, 16px);
   font-weight: 600;
-  color: var(--antd-color-text, #262626);
+  color: var(--antd-color-text-heading, rgba(0, 0, 0, 0.88));
 }
 
-.chapter-content aside[data-type="sidebar"] p {
-  margin: 0 0 0.75em 0;
-  line-height: 1.6;
+/* Paragraphs in aside - no indent, consistent spacing */
+.chapter-content aside p {
+  margin: 0 0 var(--antd-margin-sm, 0.5em) 0;
+  text-indent: 0;
+  font-size: calc(var(--antd-font-size-lg, 16px) * 0.95);
+  line-height: var(--antd-line-height-lg, 1.8);
+  color: var(--antd-color-text, inherit);
 }
 
-.chapter-content aside[data-type="sidebar"] p:last-child {
+.chapter-content aside p:last-child {
   margin-bottom: 0;
 }
 
-.chapter-content aside[data-type="sidebar"] em,
-.chapter-content aside[data-type="sidebar"] a {
+/* Emphasis and links */
+.chapter-content aside em {
   font-style: italic;
+  color: var(--antd-color-text, inherit);
 }
 
-.chapter-content aside[data-type="sidebar"] a.hyperlink {
-  font-style: normal;
-  color: var(--antd-color-link, #1890ff);
+.chapter-content aside a {
+  color: var(--antd-color-primary, #1890ff);
+  text-decoration: none;
+}
+
+.chapter-content aside a:hover {
+  color: var(--antd-color-primary-hover, #40a9ff);
   text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
-.chapter-content aside[data-type="sidebar"] a.hyperlink:hover {
-  color: var(--antd-color-link-hover, #40a9ff);
+/* Lists in aside */
+.chapter-content aside ul,
+.chapter-content aside ol {
+  margin: var(--antd-margin-sm, 0.5em) 0;
+  margin-left: var(--antd-margin, 1em);
+  padding-left: var(--antd-padding, 1em);
+}
+
+.chapter-content aside li {
+  margin-bottom: var(--antd-margin-xs, 0.25em);
+  font-size: calc(var(--antd-font-size-lg, 16px) * 0.95);
+}
+
+/* Remove default margins from first/last children */
+.chapter-content aside > *:first-child {
+  margin-top: 0;
+}
+
+.chapter-content aside > *:last-child {
+  margin-bottom: 0;
 }
