@@ -5,9 +5,24 @@ import { GlobalOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 
+const languages = [
+  { value: 'zh', label: '中文' },
+  { value: 'en', label: 'English' },
+  { value: 'ko', label: '한국어' },
+  { value: 'ja', label: '日本語' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+];
+
+const getCurrentLang = (lang: string): string => {
+  const langCode = lang.split('-')[0];
+  const supportedLangs = ['zh', 'en', 'ko', 'ja', 'es', 'fr'];
+  return supportedLangs.includes(langCode) ? langCode : 'zh';
+};
+
 export const LanguageSwitcher: React.FC = () => {
   const { i18n } = useTranslation();
-  const currentLang = i18n.language.startsWith('en') ? 'en' : 'zh';
+  const currentLang = getCurrentLang(i18n.language);
 
   const changeLanguage = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -17,12 +32,15 @@ export const LanguageSwitcher: React.FC = () => {
     <Select
       value={currentLang}
       onChange={changeLanguage}
-      style={{ width: 100 }}
+      style={{ width: 120 }}
       bordered={false}
       suffixIcon={<GlobalOutlined />}
     >
-      <Option value="zh">中文</Option>
-      <Option value="en">English</Option>
+      {languages.map((lang) => (
+        <Option key={lang.value} value={lang.value}>
+          {lang.label}
+        </Option>
+      ))}
     </Select>
   );
 };

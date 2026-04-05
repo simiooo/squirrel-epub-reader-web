@@ -2,6 +2,10 @@ import { ConfigProvider, App as AntdApp } from 'antd';
 import { useTranslation } from 'react-i18next';
 import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
+import koKR from 'antd/locale/ko_KR';
+import jaJP from 'antd/locale/ja_JP';
+import esES from 'antd/locale/es_ES';
+import frFR from 'antd/locale/fr_FR';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { routes } from './routes';
@@ -14,6 +18,16 @@ const router = createBrowserRouter(routes);
 const antdLocales: Record<string, typeof zhCN> = {
   en: enUS,
   zh: zhCN,
+  ko: koKR,
+  ja: jaJP,
+  es: esES,
+  fr: frFR,
+};
+
+const getCurrentLang = (lang: string): string => {
+  const langCode = lang.split('-')[0];
+  const supportedLangs = ['zh', 'en', 'ko', 'ja', 'es', 'fr'];
+  return supportedLangs.includes(langCode) ? langCode : 'zh';
 };
 
 const squirrelTheme = {
@@ -221,7 +235,7 @@ const squirrelTheme = {
 
 export function App() {
   const { i18n } = useTranslation();
-  const currentLang = i18n.language.startsWith('en') ? 'en' : 'zh';
+  const currentLang = getCurrentLang(i18n.language);
 
   return (
     <ConfigProvider locale={antdLocales[currentLang]} theme={squirrelTheme}>
