@@ -3,6 +3,10 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import en from './locales/en.json';
 import zh from './locales/zh.json';
+import ko from './locales/ko.json';
+import ja from './locales/ja.json';
+import es from './locales/es.json';
+import fr from './locales/fr.json';
 
 i18n
   .use(LanguageDetector)
@@ -14,6 +18,18 @@ i18n
       },
       zh: {
         translation: zh,
+      },
+      ko: {
+        translation: ko,
+      },
+      ja: {
+        translation: ja,
+      },
+      es: {
+        translation: es,
+      },
+      fr: {
+        translation: fr,
       },
     },
     fallbackLng: 'zh',
